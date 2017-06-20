@@ -1,6 +1,9 @@
 import re
 import os
 
+import Functions as fn
+from DS import DS
+
 
 class Set:
     def __init__(self, data=[]):
@@ -23,21 +26,34 @@ class Set:
     def writeTexts(self):
         path = 'raw_text/'
         os.makedirs(path)
-        for case in self.data:
-            f = open(path + case.name + '_' + case.challenge + '_' + case.stage + '_' + case.labelled + '_' + case.label_type, 'w+')
-            f.write(case.raw_text)
+        for i in range(self.size):
+            f = open(path + str(i).zfill(4) + '_' + self.data[i].challenge + '_' + self.data[i].stage + '_' + self.data[i].labelled + '_' + self.data[i].label_type + '_' + self.data[i].name, 'w+')
+            f.write(self.data[i].raw_text)
             f.close()
         print('raw_text Write Complete')
 
     def writeLabels(self):
         path = 'raw_labels/'
         os.makedirs(path)
-        for case in self.data:
-            if case.labelled == 'yes':
-                f = open(path + case.name + '_' + case.challenge + '_' + case.stage + '_' + case.labelled + '_' + case.label_type, 'w+')
-                f.write(case.raw_labels)
+        for i in range(self.size):
+            if self.data[i].labelled == 'yes':
+                f = open(path + str(i).zfill(4) + '_' + self.data[i].challenge + '_' + self.data[i].stage + '_' + self.data[i].labelled + '_' + self.data[i].label_type + '_' + self.data[i].name, 'w+')
+                f.write(self.data[i].raw_labels)
                 f.close()
         print('raw_labels Write Complete')
+
+    def loadTexts(self):
+        for filename in fn.listdir_nohidden('raw_text'):
+            info = filename.split('_')
+            with open('raw_text/' + filename, 'r') as file:
+                temp = DS(name=info[0], challenge=info[1], stage=info[2], raw_text=file.read())
+                self.add(temp)
+
+    def loadLabels(self):
+        for filename in fn.listdir_nohidden('raw_labels'):
+            info = filename.split('_')
+            with open('raw_labels/' + filename, 'r') as file:
+                self.addLabels(name=info[0], case=info[4], raw_labels=file.read())
 
     def numberOf(self, challenge=r'.', stage=r'.', labelled=r'.', label_type=r'.'):
         n = 0
@@ -66,8 +82,8 @@ class Set:
             print('\n')
 
     def append(self, dataset):
-        self.data = self.data + dataset.data
-        self.size += dataset.size
+        for case in dataset:
+            self.add(case)
 
     def duplicates(self):
         dupl = 0
@@ -94,10 +110,7 @@ class Set:
         for i in range(self.size):
             if self.data[i].name == name:
                 self.data[i].labelled = 'yes'
-                if case == 'train':
-                    self.data[i].label_type = 'train'
-                if case == 'test':
-                    self.data[i].label_type = 'test'
+                self.data[i].label_type = case
                 self.data[i].raw_labels = raw_labels
                 break
 
