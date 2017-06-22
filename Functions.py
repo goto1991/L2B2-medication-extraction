@@ -1,6 +1,15 @@
 import os
 import lxml.etree
 import zipfile
+import re
+from collections import Counter
+import numpy as np
+from sklearn.manifold import TSNE
+
+from bokeh.models import ColumnDataSource, LabelSet
+from bokeh.plotting import figure, show, output_file
+from bokeh.io import output_notebook
+output_notebook()
 
 from Set import pool
 from DS import DS
@@ -11,7 +20,7 @@ def listdir_nohidden(path):
         if not f.startswith('.'):
             yield f
 
-def firstTimeLoad():
+def first_time_load():
     dataset = pool()
 
     challenge = '2009 Medication Challenge'
@@ -156,3 +165,79 @@ def firstTimeLoad():
         print('%d/%d added from %s' % (added, total, path))
 
     return(dataset)
+
+def label_words(Dataset):
+    doc = open("stopwords.txt", "r")
+    stopwords = set(doc.read().split('\n'))
+    stopwords.update({'nm', 'ngl'})
+
+    medications = set()
+    dosages = set()
+    modes = set()
+    frequencies = set()
+    durations = set()
+    reasons = set()
+
+    vocab = {word for sent in Dataset.getSentences() for word in sent}
+
+    labelled = Dataset.getDS(labelled='yes')
+
+    for case in labelled.data:
+        for term in re.finditer(r'm="[a-z0-9 ]+"', case.raw_labels):
+            temp = term.group()[3:-1].split()
+            [medications.add(re.sub(r'\d+', '<num>', word)) for word in temp if (word not in stopwords) and (re.sub(r'\d+', '<num>', word)) in vocab]
+        for term in re.finditer(r'do="[a-z0-9 ]+"', case.raw_labels):
+            temp = term.group()[4:-1].split()
+            [dosages.add(re.sub(r'\d+', '<num>', word)) for word in temp if (word not in stopwords) and (re.sub(r'\d+', '<num>', word) in vocab)]
+        for term in re.finditer(r'mo="[a-z0-9 ]+"', case.raw_labels):
+            temp = term.group()[4:-1].split()
+            [modes.add(re.sub(r'\d+', '<num>', word)) for word in temp if (word not in stopwords) and (re.sub(r'\d+', '<num>', word) in vocab)]
+        for term in re.finditer(r'f="[a-z0-9 ]+"', case.raw_labels):
+            temp = term.group()[3:-1].split()
+            [frequencies.add(re.sub(r'\d+', '<num>', word)) for word in temp if (word not in stopwords) and (re.sub(r'\d+', '<num>', word) in vocab)]
+        for term in re.finditer(r'du="[a-z0-9 ]+"', case.raw_labels):
+            temp = term.group()[4:-1].split()
+            [durations.add(re.sub(r'\d+', '<num>', word)) for word in temp if (word not in stopwords) and (re.sub(r'\d+', '<num>', word) in vocab)]
+        for term in re.finditer(r'r="[a-z0-9 ]+"', case.raw_labels):
+            temp = term.group()[3:-1].split()
+            [reasons.add(re.sub(r'\d+', '<num>', word)) for word in temp if (word not in stopwords) and (re.sub(r'\d+', '<num>', word) in vocab)]
+
+    print('Number of: m={0}, do={1}, mo={2}, f={3}, du={4}, r={5}'.format(len(medications), len(dosages), len(modes), len(frequencies), len(durations), len(reasons)))
+    return(medications, dosages, modes, frequencies, durations, reasons)
+
+def visualise(model, sentences, labels, topn):
+    words = [word for sent in sentences for word in sent]
+    cnt = np.array(Counter(words).most_common(1000))
+    topwords = np.ndarray.tolist(cnt[:, 0])
+
+    visualisation = []
+    colormap = []
+    colors = ['red', 'green',  'yellow', 'purple', 'orange', 'cyan']
+
+    [(visualisation.append(word), colormap.append(colors[i])) for i in range(len(labels)) for word in labels[i]]
+
+    [(visualisation.append(word), colormap.append('blue')) for word in topwords if word not in visualisation]
+
+    # This assumes words_top_ted is a list of strings, the top 1000 words
+    words_vec = model[visualisation]
+
+    tsne = TSNE(n_components=2, random_state=0)
+    words_tsne = tsne.fit_transform(words_vec)
+
+    p = figure(tools="pan,wheel_zoom,reset,save",
+               toolbar_location="above",
+               title="T-SNE for top " + str(topn) + " words and labels")
+
+    source = ColumnDataSource(data=dict(x1=words_tsne[:, 0],
+                                        x2=words_tsne[:, 1],
+                                        names=visualisation,
+                                        coloring=colormap))
+
+    p.scatter(x="x1", y="x2", color="coloring", size=8, source=source)
+
+    labels = LabelSet(x="x1", y="x2", text="names", y_offset=6,
+                      text_font_size="8pt", text_color="#555555",
+                      source=source, text_align='center')
+    p.add_layout(labels)
+
+    show(p)

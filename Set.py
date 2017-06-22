@@ -48,12 +48,14 @@ class pool:
             with open('raw_text/' + filename, 'r') as file:
                 temp = DS(name=info[0], challenge=info[1], stage=info[2], raw_text=file.read())
                 self.add(temp)
+        print('Texts loaded')
 
     def loadLabels(self):
         for filename in fn.listdir_nohidden('raw_labels'):
             info = filename.split('_')
             with open('raw_labels/' + filename, 'r') as file:
                 self.addLabels(name=info[0], case=info[4], raw_labels=file.read())
+        print('Labels loaded')
 
     def numberOf(self, challenge=r'.', stage=r'.', labelled=r'.', label_type=r'.'):
         n = 0
