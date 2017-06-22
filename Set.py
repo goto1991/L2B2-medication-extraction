@@ -5,7 +5,7 @@ import Functions as fn
 from DS import DS
 
 
-class Set:
+class pool:
     def __init__(self, data=[]):
         self.data = []
         self.size = len(data)
@@ -66,7 +66,7 @@ class Set:
         return (n)
 
     def getDS(self, name=r'.', challenge=r'.', stage=r'.', labelled=r'.', label_type=r'.'):
-        output = Set()
+        output = pool()
         for case in self.data:
             if (re.match(name, case.name) != None) & \
                     (re.match(challenge, case.challenge) != None) & \
@@ -120,8 +120,8 @@ class Set:
 
     def getSentences(self, challenge=r'.', stage=r'.'):
         sentences = []
-        pool = self.getDS(challenge=challenge, stage=stage)
-        for case in pool.data:
+        temp = self.getDS(challenge=challenge, stage=stage)
+        for case in temp.data:
             for sent in case.emb_text:
                 sentences.append(sent)
         return (sentences)

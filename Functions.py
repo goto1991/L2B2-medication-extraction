@@ -2,7 +2,7 @@ import os
 import lxml.etree
 import zipfile
 
-from Set import Set
+from Set import pool
 from DS import DS
 
 
@@ -12,7 +12,7 @@ def listdir_nohidden(path):
             yield f
 
 def firstTimeLoad():
-    dataset = Set()
+    dataset = pool()
 
     challenge = '2009 Medication Challenge'
     path = challenge + '/training.sets.released/'
