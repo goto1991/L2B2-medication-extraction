@@ -7,6 +7,7 @@ class Iterator():
         self.labels = labels
         self.size = len(self.texts)
         self.epochs = 0
+        self.cursor = 0
         self.shuffle()
 
     def shuffle(self):

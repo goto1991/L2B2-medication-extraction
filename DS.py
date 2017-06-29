@@ -13,7 +13,7 @@ class DS:
         self.test_text = []
         self.raw_labels = []
 
-    def processForEmbedding(self):
+    def process_for_embedding(self):
         self.emb_text = []
         temp = self.raw_text
         temp = re.sub(r'\d+', '<NUM>', temp)
@@ -27,7 +27,7 @@ class DS:
             temp[i] = temp[i].lower()
             self.emb_text.append(temp[i].split())
 
-    def showInfo(self):
+    def show_info(self):
         print('Name: ', self.name, )
         print('Challenge: ', self.challenge, )
         print('Train or Test Set: ', self.stage, )

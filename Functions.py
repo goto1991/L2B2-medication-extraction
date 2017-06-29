@@ -5,20 +5,22 @@ import re
 from collections import Counter
 import numpy as np
 from sklearn.manifold import TSNE
-
-from bokeh.models import ColumnDataSource, LabelSet
-from bokeh.plotting import figure, show, output_file
-from bokeh.io import output_notebook
-output_notebook()
+import random
 
 from Set import pool
 from DS import DS
+
+from bokeh.models import ColumnDataSource, LabelSet
+from bokeh.plotting import figure, show, output_file
+#from bokeh.io import output_notebook
+#£output_notebook()
 
 
 def listdir_nohidden(path):
     for f in os.listdir(path):
         if not f.startswith('.'):
             yield f
+
 
 def first_time_load():
     dataset = pool()
@@ -64,7 +66,6 @@ def first_time_load():
             ['/1B deid_surrogate_test_all_version2.zip', 'deid_surrogate_test_all_version2.xml'], \
             ['/1B deid_surrogate_train_all_version2_CORRECTED.zip', 'deid_surrogate_train_all_version2.xml'], \
             ['/1A unannotated_records_deid_smoking_CORRECTED.zip', 'unannotated_records_deid_smoking.xml']]
-
     for file in path:
         if file[0] == '':
             root = lxml.etree.parse(challenge + file[1]).getroot()
@@ -90,7 +91,6 @@ def first_time_load():
              '/obesity_patient_records_training 50.xml', \
              '/obesity_patient_records_training.xml', \
              '/obesity_patient_records_training2.xml']
-
     for file in files:
         path = challenge + file
         root = lxml.etree.parse(path).getroot()
@@ -114,7 +114,6 @@ def first_time_load():
                '/concept_assertion_relation_training_data/partners/unannotated/', \
                '/Sample Data/', \
                '/test_data/']
-
     for folder in folders:
         path = challenge + folder
         total = 0
@@ -132,7 +131,6 @@ def first_time_load():
                '/Test_Partners/docs/', \
                '/Train_Beth/docs/', \
                '/Train_Partners/docs/']
-
     for folder in folders:
         path = challenge + folder
         total = 0
@@ -151,7 +149,6 @@ def first_time_load():
                '/Evaluation_Test ground_truth_2012-08-23.test-data.groundtruth/merged_i2b2/', \
                '/Evaluation_Test ground_truth_2012-08-23.test-data.groundtruth/unmerged_i2b2/', \
                '/Evaluation_Test data_2012-08-06.test-data-release/txt/']
-
     for folder in folders:
         path = challenge + folder
         total = 0
@@ -166,6 +163,7 @@ def first_time_load():
 
     return(dataset)
 
+
 def label_words(Dataset):
     doc = open("stopwords.txt", "r")
     stopwords = set(doc.read().split('\n'))
@@ -178,9 +176,8 @@ def label_words(Dataset):
     durations = set()
     reasons = set()
 
-    vocab = {word for sent in Dataset.getSentences() for word in sent}
-
-    labelled = Dataset.getDS(labelled='yes')
+    vocab = {word for sent in Dataset.get_sentences() for word in sent}
+    labelled = Dataset.get_DS(labelled='yes')
 
     for case in labelled.data:
         for term in re.finditer(r'm="[a-z0-9 ]+"', case.raw_labels):
@@ -205,20 +202,18 @@ def label_words(Dataset):
     print('Number of: m={0}, do={1}, mo={2}, f={3}, du={4}, r={5}'.format(len(medications), len(dosages), len(modes), len(frequencies), len(durations), len(reasons)))
     return(medications, dosages, modes, frequencies, durations, reasons)
 
-def visualise(model, sentences, labels, topn):
+
+def visualise(model, sentences, labels, topn, title):
     words = [word for sent in sentences for word in sent]
-    cnt = np.array(Counter(words).most_common(1000))
-    topwords = np.ndarray.tolist(cnt[:, 0])
+    cnt = np.array(Counter(words).most_common(topn))
+    top_words = np.ndarray.tolist(cnt[:, 0])
 
     visualisation = []
     colormap = []
-    colors = ['red', 'green',  'yellow', 'purple', 'orange', 'cyan']
+    colors = ['red', 'green',  'yellow', 'purple', 'orange', 'cyan', 'blue']
 
     [(visualisation.append(word), colormap.append(colors[i])) for i in range(len(labels)) for word in labels[i]]
-
-    [(visualisation.append(word), colormap.append('blue')) for word in topwords if word not in visualisation]
-
-    # This assumes words_top_ted is a list of strings, the top 1000 words
+    [(visualisation.append(word), colormap.append(colors[6])) for word in top_words if word not in visualisation]
     words_vec = model[visualisation]
 
     tsne = TSNE(n_components=2, random_state=0)
@@ -226,7 +221,9 @@ def visualise(model, sentences, labels, topn):
 
     p = figure(tools="pan,wheel_zoom,reset,save",
                toolbar_location="above",
-               title="T-SNE for top " + str(topn) + " words and labels")
+               title=title,
+               plot_width = 1000,
+               plot_height = 1000)
 
     source = ColumnDataSource(data=dict(x1=words_tsne[:, 0],
                                         x2=words_tsne[:, 1],
@@ -241,3 +238,50 @@ def visualise(model, sentences, labels, topn):
     p.add_layout(labels)
 
     show(p)
+
+
+def get_traintest(model, labels, train_size, test_size, train_label_percentage, test_label_percentage, word_repetition, label_repetition):
+    train_set = []
+    train_labels = []
+    train_size = train_size
+    test_set = []
+    test_labels = []
+    test_size = test_size
+
+    vocab = set(model.wv.vocab.keys())
+    target = set(labels)
+
+    for i in range(train_size * (100 - train_label_percentage) // 100):
+        word = random.sample(vocab, 1)
+        train_set.append(model[word[0]])
+        if not word_repetition: vocab.discard(word[0])
+        if word[0] in target:
+            train_labels.append([1, 0])
+            if not label_repetition: target.discard(word[0])
+        else:
+            train_labels.append([0, 1])
+    for i in range(train_size * train_label_percentage // 100):
+        word = random.sample(target, 1)
+        train_set.append(model[word[0]])
+        train_labels.append([1, 0])
+        if not label_repetition: target.discard(word[0])
+
+    for i in range(test_size * (100 - test_label_percentage) // 100):
+        word = random.sample(vocab, 1)
+        test_set.append(model[word[0]])
+        if not word_repetition: vocab.discard(word[0])
+        if word[0] in labels:
+            test_labels.append([1, 0])
+            if not label_repetition: target.discard(word[0])
+        else:
+            test_labels.append([0, 1])
+
+    for i in range(test_size * test_label_percentage // 100):
+        word = random.sample(target, 1)
+        test_set.append(model[word[0]])
+        test_labels.append([1, 0])
+        if not label_repetition: target.discard(word[0])
+
+    print('Train label percentage: %f' %(np.array(train_labels).sum(0)[0]/len(train_labels)))
+    print('Test ratio: %f' %(np.array(test_labels).sum(0)[0] / len(test_labels)))
+    return train_set, train_labels, test_set, test_labels
