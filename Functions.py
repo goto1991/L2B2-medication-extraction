@@ -281,8 +281,8 @@ def get_traintest(model, labels, train_size, test_size, train_label_percentage, 
         test_labels.append([1, 0])
         if not label_repetition: target.discard(word[0])
 
-    print('Percentage of labels in train set: %f' %(np.array(train_labels).sum(0)[0]/len(train_labels)))
-    print('Percentage of labels in test: %f' %(np.array(test_labels).sum(0)[0] / len(test_labels)))
+    print('Train set size: %d \tPercentage of labels: %f' %(len(train_labels), np.array(train_labels).sum(0)[0]/len(train_labels)))
+    print('Test set size: %d \tPercentage of labels: %f' %(len(test_labels), np.array(test_labels).sum(0)[0] / len(test_labels)))
     return train_set, train_labels, test_set, test_labels
 
 
@@ -338,12 +338,13 @@ def model_1(train_set, train_labels, test_set, test_labels, target='medications'
     mark = (epochs * (len(train_set) // batch_size) * report_percentage) // 100
     N = 0
 
+    print("Target: %s \tRepetitions: %s" % (target, repetitions))
     while training.epochs < epochs:
         trd, trl = training.next_batch(batch_size)
         if N % mark == 0:
             train_accuracy = sess.run(accuracy, feed_dict={x: trd, y_: trl})
             test_accuracy = sess.run(accuracy, feed_dict={x: test_set, y_: test_labels})
-            print("%d%% %s with %srepetitions training complete, training accuracy: %f, test accuracy: %f" % (N * report_percentage// mark, target, repetitions, train_accuracy, test_accuracy))
+            print("Progress: %d%% \tTraining Accuracy: %f\t Test accuracy: %f" % (N * report_percentage// mark, train_accuracy, test_accuracy))
         sess.run(train_step, feed_dict={x: trd, y_: trl})
         N += 1
 
