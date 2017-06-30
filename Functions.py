@@ -6,9 +6,11 @@ from collections import Counter
 import numpy as np
 from sklearn.manifold import TSNE
 import random
+import tensorflow as tf
 
 from Set import pool
 from DS import DS
+from Iterator import Iterator
 
 from bokeh.models import ColumnDataSource, LabelSet
 from bokeh.plotting import figure, show, output_file
@@ -282,6 +284,70 @@ def get_traintest(model, labels, train_size, test_size, train_label_percentage, 
         test_labels.append([1, 0])
         if not label_repetition: target.discard(word[0])
 
-    print('Train label percentage: %f' %(np.array(train_labels).sum(0)[0]/len(train_labels)))
-    print('Test ratio: %f' %(np.array(test_labels).sum(0)[0] / len(test_labels)))
+    print('Percentage of labels in train set: %f' %(np.array(train_labels).sum(0)[0]/len(train_labels)))
+    print('Percentage of labels in test: %f' %(np.array(test_labels).sum(0)[0] / len(test_labels)))
     return train_set, train_labels, test_set, test_labels
+
+
+def model_1(train_set, train_labels, test_set, test_labels, target='medications', repetitions='no ', report_percentage=20, epochs=1000, batch=50, input_size=100, output_size=2, node_count=50):
+    def weight_variable(shape):
+        initial = tf.truncated_normal(shape, stddev=0.05)
+        return tf.Variable(initial)
+
+    def bias_variable(shape):
+        initial = tf.constant(0.1, shape=shape)
+        return tf.Variable(initial)
+
+    node_count = node_count
+
+    x = tf.placeholder(tf.float32, shape=[None, input_size])
+    y_ = tf.placeholder(tf.float32, shape=[None, output_size])
+
+    # Define the first layer here
+    W = weight_variable([input_size, node_count])
+    b = bias_variable([node_count])
+    h = tf.nn.sigmoid(tf.matmul(x, W) + b)
+
+    # Use dropout for this layer (should you wish)
+    # keep_prob = tf.placeholder(tf.float32)
+    # h_drop = tf.nn.dropout(h1, keep_prob)
+
+    # Define the second layer here
+    # W2 = weight_variable([node_count_1, node_count_2])
+    # b2 = bias_variable([node_count_2])
+    # h2 = tf.nn.sigmoid(tf.matmul(h, W) + b)
+
+    # Define the output layer here
+    V = weight_variable([node_count, output_size])
+    c = bias_variable([output_size])
+    y = tf.nn.softmax(tf.matmul(h, V) + c)
+
+    # We'll use the cross entropy loss function
+    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y, labels=y_))
+
+    # And classification accuracy
+    correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
+    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
+    # And the Adam optimiser
+    train_step = tf.train.AdamOptimizer(learning_rate=1e-2).minimize(cross_entropy)
+
+    # Start a tf session and run the optimisation algorithm
+    sess = tf.Session()
+    #sess.run(tf.initialize_all_variables())
+    sess.run(tf.global_variables_initializer())
+
+    training = Iterator(train_set, train_labels)
+    N = 0
+
+    while training.epochs < epochs:
+        trd, trl = training.next_batch(batch)
+        report_mark = epochs * batch * report_percentage // 100
+        if N % report_mark == 0:
+            train_accuracy = sess.run(accuracy, feed_dict={x: trd, y_: trl})
+            test_accuracy = sess.run(accuracy, feed_dict={x: test_set, y_: test_labels})
+            print("%d%% %s with %srepetitions training complete, training accuracy: %f, test accuracy: %f" % (N * report_percentage // report_mark, target, repetitions, train_accuracy, test_accuracy))
+        sess.run(train_step, feed_dict={x: trd, y_: trl})
+        N += 1
+
+    print("Final Test Accuracy: %f\n" % (sess.run(accuracy, feed_dict={x: test_set, y_: test_labels})))
