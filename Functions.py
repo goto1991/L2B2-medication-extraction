@@ -255,13 +255,12 @@ def get_traintest(model, labels, train_size, test_size, train_label_percentage, 
 
     for i in range(train_size * (100 - train_label_percentage) // 100):
         word = random.sample(vocab, 1)
+        while word[0] in labels:
+            word = random.sample(vocab, 1)
         train_set.append(model[word[0]])
         if not word_repetition: vocab.discard(word[0])
-        if word[0] in target:
-            train_labels.append([1, 0])
-            if not label_repetition: target.discard(word[0])
-        else:
-            train_labels.append([0, 1])
+        train_labels.append([0, 1])
+
     for i in range(train_size * train_label_percentage // 100):
         word = random.sample(target, 1)
         train_set.append(model[word[0]])
@@ -270,13 +269,11 @@ def get_traintest(model, labels, train_size, test_size, train_label_percentage, 
 
     for i in range(test_size * (100 - test_label_percentage) // 100):
         word = random.sample(vocab, 1)
+        while word[0] in labels:
+            word = random.sample(vocab,1)
         test_set.append(model[word[0]])
         if not word_repetition: vocab.discard(word[0])
-        if word[0] in labels:
-            test_labels.append([1, 0])
-            if not label_repetition: target.discard(word[0])
-        else:
-            test_labels.append([0, 1])
+        test_labels.append([0, 1])
 
     for i in range(test_size * test_label_percentage // 100):
         word = random.sample(target, 1)
@@ -289,7 +286,7 @@ def get_traintest(model, labels, train_size, test_size, train_label_percentage, 
     return train_set, train_labels, test_set, test_labels
 
 
-def model_1(train_set, train_labels, test_set, test_labels, target='medications', repetitions='no ', report_percentage=20, epochs=1000, batch=50, input_size=100, output_size=2, node_count=50):
+def model_1(train_set, train_labels, test_set, test_labels, target='medications', repetitions='no ', report_percentage=20, epochs=1000, batch_size=50, input_size=100, output_size=2, node_count=50):
     def weight_variable(shape):
         initial = tf.truncated_normal(shape, stddev=0.05)
         return tf.Variable(initial)
@@ -334,19 +331,19 @@ def model_1(train_set, train_labels, test_set, test_labels, target='medications'
 
     # Start a tf session and run the optimisation algorithm
     sess = tf.Session()
-    #sess.run(tf.initialize_all_variables())
+    # sess.run(tf.initialize_all_variables())
     sess.run(tf.global_variables_initializer())
 
     training = Iterator(train_set, train_labels)
+    mark = (epochs * (len(train_set) // batch_size) * report_percentage) // 100
     N = 0
 
     while training.epochs < epochs:
-        trd, trl = training.next_batch(batch)
-        report_mark = epochs * batch * report_percentage // 100
-        if N % report_mark == 0:
+        trd, trl = training.next_batch(batch_size)
+        if N % mark == 0:
             train_accuracy = sess.run(accuracy, feed_dict={x: trd, y_: trl})
             test_accuracy = sess.run(accuracy, feed_dict={x: test_set, y_: test_labels})
-            print("%d%% %s with %srepetitions training complete, training accuracy: %f, test accuracy: %f" % (N * report_percentage // report_mark, target, repetitions, train_accuracy, test_accuracy))
+            print("%d%% %s with %srepetitions training complete, training accuracy: %f, test accuracy: %f" % (N * report_percentage// mark, target, repetitions, train_accuracy, test_accuracy))
         sess.run(train_step, feed_dict={x: trd, y_: trl})
         N += 1
 
