@@ -10,14 +10,16 @@ class DS:
         self.label_type = 'none'
         self.raw_text = raw_text
         self.emb_text = []
+        self.token_text = []
         self.test_text = []
+        self.raw_labels = []
         self.raw_labels = []
 
     def process_for_embedding(self):
         self.emb_text = []
         temp = self.raw_text
         temp = re.sub(r'\d+', '<NUM>', temp)
-        temp = re.sub(r'([A-Za-z]):', r'\1 :', temp)
+        temp = re.sub(r'([A-Za-z]):', r'\1', temp)
         temp = re.sub(r'\n', ' ', temp)
         temp = re.sub(r'Dr.', 'Dr', temp)
         temp = re.sub(r'Mr.', 'Mr', temp)

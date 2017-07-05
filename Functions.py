@@ -7,6 +7,7 @@ import numpy as np
 from sklearn.manifold import TSNE
 import random
 import tensorflow as tf
+import sklearn as sk
 
 from Set import pool
 from DS import DS
@@ -14,8 +15,8 @@ from Iterator import Iterator
 
 from bokeh.models import ColumnDataSource, LabelSet
 from bokeh.plotting import figure, show, output_file
-#from bokeh.io import output_notebook
-#£output_notebook()
+# from bokeh.io import output_notebook
+# £output_notebook()
 
 
 def listdir_nohidden(path):
@@ -202,10 +203,10 @@ def label_words(Dataset):
             [reasons.add(re.sub(r'\d+', '<num>', word)) for word in temp if (word not in stopwords) and (re.sub(r'\d+', '<num>', word) in vocab)]
 
     print('Number of: m={0}, do={1}, mo={2}, f={3}, du={4}, r={5}'.format(len(medications), len(dosages), len(modes), len(frequencies), len(durations), len(reasons)))
-    return(medications, dosages, modes, frequencies, durations, reasons)
+    return medications, dosages, modes, frequencies, durations, reasons
 
 
-def visualise(model, sentences, labels, topn, title):
+def visualise(model, sentences, labels, topn=1000, title='T-SNE'):
     words = [word for sent in sentences for word in sent]
     cnt = np.array(Counter(words).most_common(topn))
     top_words = np.ndarray.tolist(cnt[:, 0])
@@ -286,7 +287,7 @@ def get_traintest(model, labels, train_size, test_size, train_label_percentage, 
     return train_set, train_labels, test_set, test_labels
 
 
-def model_1(train_set, train_labels, test_set, test_labels, target='medications', repetitions='no ', report_percentage=20, epochs=1000, batch_size=50, input_size=100, output_size=2, node_count=50):
+def model_1(train_set, train_labels, test_set, test_labels, target='medications', repetitions='no', report_percentage=20, epochs=1000, batch_size=50, input_size=100, output_size=2, node_count=50):
     def weight_variable(shape):
         initial = tf.truncated_normal(shape, stddev=0.05)
         return tf.Variable(initial)
@@ -326,6 +327,9 @@ def model_1(train_set, train_labels, test_set, test_labels, target='medications'
     correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
+    # prediction
+    pred = tf.argmax(y, 1)
+
     # And the Adam optimiser
     train_step = tf.train.AdamOptimizer(learning_rate=1e-2).minimize(cross_entropy)
 
@@ -344,8 +348,37 @@ def model_1(train_set, train_labels, test_set, test_labels, target='medications'
         if N % mark == 0:
             train_accuracy = sess.run(accuracy, feed_dict={x: trd, y_: trl})
             test_accuracy = sess.run(accuracy, feed_dict={x: test_set, y_: test_labels})
-            print("Progress: %d%% \tTraining Accuracy: %f\t Test accuracy: %f" % (N * report_percentage// mark, train_accuracy, test_accuracy))
+            prediction = sess.run(pred, feed_dict={x: test_set, y_: test_labels})
+            f1_score = sk.metrics.f1_score(np.argmax(test_labels, 1), prediction, pos_label=0, average='binary')
+            print("Progress: %d%% \tTraining Accuracy: %f\t Test Accuracy: %f\t F1 Score: %f\t" % (N * report_percentage// mark, train_accuracy, test_accuracy, f1_score))
         sess.run(train_step, feed_dict={x: trd, y_: trl})
         N += 1
 
-    print("Final Test Accuracy: %f\n" % (sess.run(accuracy, feed_dict={x: test_set, y_: test_labels})))
+    print("Final Test F1 Score: %f\n" % (sk.metrics.f1_score(np.argmax(test_labels, 1), sess.run(pred, feed_dict={x: test_set, y_: test_labels}), pos_label=0, average='binary')))
+
+
+def write_emb(title, model):
+    try:
+        os.remove(title)
+    except OSError:
+        pass
+    f = open(title, 'w+')
+    f.write(' '.join([str(len(model.wv.vocab)), str(model.vector_size)]) + '\n')
+    for word in model.wv.vocab:
+        f.write(word + '\n')
+        f.write(' '.join(str(feature) for feature in model[word]) + '\n')
+    f.close()
+    print('Embeddings of %d words with length %d have ben written to %s' % (len(model.wv.vocab), model.vector_size, title))
+
+
+def load_emb(title):
+    model = {}
+    f = open(title, 'r')
+    word_num, vec_size = list(map(int, f.readline().split()))
+    for i in range(word_num):
+        word = f.readline().strip()
+        model[word] = list(map(float, f.readline().split()))
+    f.close()
+    print('Embeddings of %d words with length %d loaded from %s' % (word_num, vec_size, title))
+    return model
+
