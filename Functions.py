@@ -8,6 +8,8 @@ from sklearn.manifold import TSNE
 import random
 import tensorflow as tf
 import sklearn as sk
+import matplotlib.pyplot as plt
+import warnings
 
 from Set import pool
 from DS import DS
@@ -167,7 +169,7 @@ def first_time_load():
     return(dataset)
 
 
-def label_words(Dataset):
+def label_words(Dataset, model):
     doc = open("stopwords.txt", "r")
     stopwords = set(doc.read().split('\n'))
     stopwords.update({'nm', 'ngl'})
@@ -179,7 +181,7 @@ def label_words(Dataset):
     durations = set()
     reasons = set()
 
-    vocab = {word for sent in Dataset.get_sentences() for word in sent}
+    vocab = model.wv.vocab.keys()
     labelled = Dataset.get_DS(labelled='yes')
 
     for case in labelled.data:
@@ -287,76 +289,6 @@ def get_traintest(model, labels, train_size, test_size, train_label_percentage, 
     return train_set, train_labels, test_set, test_labels
 
 
-def model_1(train_set, train_labels, test_set, test_labels, target='medications', repetitions='no', report_percentage=20, epochs=1000, batch_size=50, input_size=100, output_size=2, node_count=50):
-    def weight_variable(shape):
-        initial = tf.truncated_normal(shape, stddev=0.05)
-        return tf.Variable(initial)
-
-    def bias_variable(shape):
-        initial = tf.constant(0.1, shape=shape)
-        return tf.Variable(initial)
-
-    node_count = node_count
-
-    x = tf.placeholder(tf.float32, shape=[None, input_size])
-    y_ = tf.placeholder(tf.float32, shape=[None, output_size])
-
-    # Define the first layer here
-    W = weight_variable([input_size, node_count])
-    b = bias_variable([node_count])
-    h = tf.nn.sigmoid(tf.matmul(x, W) + b)
-
-    # Use dropout for this layer (should you wish)
-    # keep_prob = tf.placeholder(tf.float32)
-    # h_drop = tf.nn.dropout(h1, keep_prob)
-
-    # Define the second layer here
-    # W2 = weight_variable([node_count_1, node_count_2])
-    # b2 = bias_variable([node_count_2])
-    # h2 = tf.nn.sigmoid(tf.matmul(h, W) + b)
-
-    # Define the output layer here
-    V = weight_variable([node_count, output_size])
-    c = bias_variable([output_size])
-    y = tf.nn.softmax(tf.matmul(h, V) + c)
-
-    # We'll use the cross entropy loss function
-    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y, labels=y_))
-
-    # And classification accuracy
-    correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
-    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
-    # prediction
-    pred = tf.argmax(y, 1)
-
-    # And the Adam optimiser
-    train_step = tf.train.AdamOptimizer(learning_rate=1e-2).minimize(cross_entropy)
-
-    # Start a tf session and run the optimisation algorithm
-    sess = tf.Session()
-    # sess.run(tf.initialize_all_variables())
-    sess.run(tf.global_variables_initializer())
-
-    training = Iterator(train_set, train_labels)
-    mark = (epochs * (len(train_set) // batch_size) * report_percentage) // 100
-    N = 0
-
-    print("Target: %s \tRepetitions: %s" % (target, repetitions))
-    while training.epochs < epochs:
-        trd, trl = training.next_batch(batch_size)
-        if N % mark == 0:
-            train_accuracy = sess.run(accuracy, feed_dict={x: trd, y_: trl})
-            test_accuracy = sess.run(accuracy, feed_dict={x: test_set, y_: test_labels})
-            prediction = sess.run(pred, feed_dict={x: test_set, y_: test_labels})
-            f1_score = sk.metrics.f1_score(np.argmax(test_labels, 1), prediction, pos_label=0, average='binary')
-            print("Progress: %d%% \tTraining Accuracy: %f\t Test Accuracy: %f\t F1 Score: %f\t" % (N * report_percentage// mark, train_accuracy, test_accuracy, f1_score))
-        sess.run(train_step, feed_dict={x: trd, y_: trl})
-        N += 1
-
-    print("Final Test F1 Score: %f\n" % (sk.metrics.f1_score(np.argmax(test_labels, 1), sess.run(pred, feed_dict={x: test_set, y_: test_labels}), pos_label=0, average='binary')))
-
-
 def write_emb(title, model):
     try:
         os.remove(title)
@@ -382,3 +314,25 @@ def load_emb(title):
     print('Embeddings of %d words with length %d loaded from %s' % (word_num, vec_size, title))
     return model
 
+
+def get_traintest2(dataset, model):
+        ten_percent = len(dataset.data) // 10
+
+        train_set = [model[word] if word in model.wv.vocab else np.zeros(100) for case in dataset.data[:-2*ten_percent] for word in case.test_text]
+        train_labels = [label for case in dataset.data[:-2*ten_percent] for label in case.test_labels]
+        validation_set = [model[word] if word in model.wv.vocab else np.zeros(100) for case in dataset.data[-2*ten_percent:-ten_percent] for word in case.test_text]
+        validation_labels = [label for case in dataset.data[-2*ten_percent:-ten_percent] for label in case.test_labels]
+        test_set = [model[word] if word in model.wv.vocab else np.zeros(100) for case in dataset.data[-ten_percent:] for word in case.test_text]
+        test_labels = [label for case in dataset.data[-ten_percent:] for label in case.test_labels]
+        test_words = [word for case in dataset.data[-ten_percent:] for word in case.test_text]
+
+        print(*[len(a) for a in [train_set, train_labels, validation_set, validation_labels, test_set, test_labels, test_words]], sep='\t')
+        return {'train_set': train_set, 'train_labels': train_labels, 'validation_set': validation_set, 'validation_labels': validation_labels, 'test_set': test_set, 'test_labels': test_labels, 'test_words': test_words}
+
+
+def saturate_training_set(dataset, model, labels, share):
+    while (np.array(dataset['train_labels']).sum(0) / len(dataset['train_labels']))[0] < share:
+        for med in labels:
+            dataset['train_set'].append(model[med])
+            dataset['train_labels'].append([1, 0])
+        print('Label proportion: %f' % (np.array(dataset['train_labels']).sum(0) / len(dataset['train_labels']))[0], end='\r')

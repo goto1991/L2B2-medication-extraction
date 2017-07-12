@@ -127,3 +127,52 @@ class pool:
             for sent in case.emb_text:
                 sentences.append(sent)
         return sentences
+
+    def process_for_testing(self):
+        for case in self.data:
+            text = case.raw_text
+            text = text.split('\n')
+            for i in range(len(text)):
+                text[i] = text[i].strip('.')
+                text[i] = re.sub(r'\d+', '<NUM>', text[i])
+                text[i] = re.sub(r'([A-Za-z]):', r'\1', text[i])
+                text[i] = re.sub(r'Dr.', 'Dr', text[i])
+                text[i] = re.sub(r'Mr.', 'Mr', text[i])
+                text[i] = re.sub(r'\. ([A-Z])', r'. A\1', text[i])
+                text[i] = re.sub(r'\. [A-Z]', ' ', text[i])
+                text[i] = text[i].lower()
+                text[i] = text[i].split()
+            case.token_text = text
+
+            indices = []
+            for med in re.finditer(r'm="[^"]*" \d+:\d+ \d+:\d+', case.raw_labels):
+                indices.append([[int(a) for a in b.split(':')] for b in med.group().split()[-2:]])
+            indices.sort()
+            indices.append([[0, 0], [0, 0]])
+
+            truth = []
+            c = 0
+            inside = False
+            for i in range(len(text)):
+                for j in range(len(text[i])):
+                    if inside:
+                        if i + 1 < indices[c][1][0]:
+                            truth.append([1, 0])
+                        elif i + 1 == indices[c][1][0]:
+                            if j < indices[c][1][1]:
+                                truth.append([1, 0])
+                            elif j == indices[c][1][1]:
+                                truth.append([1, 0])
+                                inside = False
+                                c += 1
+                    else:
+                        if [i + 1, j] == indices[c][0]:
+                            truth.append([1, 0])
+                            if [i + 1, j] == indices[c][1]:
+                                c += 1
+                            else:
+                                inside = True
+                        else:
+                            truth.append([0, 1])
+            case.test_labels = truth
+            case.test_text = [word for sentence in case.token_text for word in sentence]
