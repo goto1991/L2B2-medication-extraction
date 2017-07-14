@@ -331,14 +331,15 @@ def load_emb(title):
 def get_traintest2(dataset, model):
         ten_percent = len(dataset.data) // 10
 
-        train_set = [model[word] if word in model.wv.vocab else np.zeros(model.vector_size) for case in dataset.data[:-2*ten_percent] for word in case.test_text]
+        train_set = [model[word] if word in model.wv.vocab else np.zeros(100) for case in dataset.data[:-2*ten_percent] for word in case.test_text]
         train_labels = [label for case in dataset.data[:-2*ten_percent] for label in case.test_labels]
-        validation_set = [model[word] if word in model.wv.vocab else np.zeros(model.vector_size) for case in dataset.data[-2*ten_percent:-ten_percent] for word in case.test_text]
+        validation_set = [model[word] if word in model.wv.vocab else np.zeros(100) for case in dataset.data[-2*ten_percent:-ten_percent] for word in case.test_text]
         validation_labels = [label for case in dataset.data[-2*ten_percent:-ten_percent] for label in case.test_labels]
-        test_set = [model[word] if word in model.wv.vocab else np.zeros(model.vector_size) for case in dataset.data[-ten_percent:] for word in case.test_text]
+        test_set = [model[word] if word in model.wv.vocab else np.zeros(100) for case in dataset.data[-ten_percent:] for word in case.test_text]
         test_labels = [label for case in dataset.data[-ten_percent:] for label in case.test_labels]
         test_words = [word for case in dataset.data[-ten_percent:] for word in case.test_text]
 
+        print(*[len(a) for a in [train_set, train_labels, validation_set, validation_labels, test_set, test_labels, test_words]], sep='\t')
         return {'train_set': train_set, 'train_labels': train_labels, 'validation_set': validation_set, 'validation_labels': validation_labels, 'test_set': test_set, 'test_labels': test_labels, 'test_words': test_words}
 
 

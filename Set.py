@@ -145,8 +145,16 @@ class pool:
             case.token_text = text
 
             indices = []
-            for med in re.finditer(r'm="[^"]*" \d+:\d+ \d+:\d+', case.raw_labels):
-                indices.append([[int(a) for a in b.split(':')] for b in med.group().split()[-2:]])
+            second = False
+            for term in re.finditer(r'm="[^|]+\|', case.raw_labels):
+                term = term.group()
+                index = []
+                for window in re.finditer(r'\d+:\d+', term):
+                    index.append(list(map(int, window.group().split(':'))))
+                    if second:
+                        indices.append(index)
+                        index = []
+                    second = not second
             indices.sort()
             indices.append([[0, 0], [0, 0]])
 

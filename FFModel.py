@@ -31,7 +31,7 @@ class FF_Model:
             initial = tf.constant(0.1, shape=shape)
             return tf.Variable(initial)
 
-        if  self.sess:
+        if self.sess:
             self.close()
         tf.reset_default_graph()
 
@@ -93,8 +93,8 @@ class FF_Model:
                            self.graph['y_']: sets['validation_labels'],
                            self.graph['keep_prob']: 1.0}
         test_feed = {self.graph['x']: sets['test_set'],
-                      self.graph['y_']: sets['test_labels'],
-                      self.graph['keep_prob']: 1.0}
+                     self.graph['y_']: sets['test_labels'],
+                     self.graph['keep_prob']: 1.0}
         train_accuracy = []
         validation_accuracy = []
         validation_f1_score = []
@@ -129,11 +129,12 @@ class FF_Model:
         plt.legend()
         plt.show()
         print('FInal Accuracies: tr: %s, va: %s' % (train_accuracy[-1], validation_accuracy[-1]))
-        print("Test F1-Score: %f\n" % (sk.metrics.f1_score(test_truth, self.sess.run(self.graph['prediction'], feed_dict=test_feed), pos_label=0)))
+        print("Test F1-Score: %f\n" % (
+        sk.metrics.f1_score(test_truth, self.sess.run(self.graph['prediction'], feed_dict=test_feed), pos_label=0)))
 
     def predict(self, data):
-        dummy = [[1,1] for i in range(len(data))]
-        feed = {self.graph['x']: data, self.graph['y_']:dummy, self.graph['keep_prob']: 1.0}
+        dummy = [[1, 1] for i in range(len(data))]
+        feed = {self.graph['x']: data, self.graph['y_']: dummy, self.graph['keep_prob']: 1.0}
         return self.sess.run(self.graph['prediction'], feed_dict=feed)
 
     def close(self):
@@ -168,4 +169,3 @@ class FF_Model:
         saver = tf.train.Saver()
         self.sess = tf.Session()
         saver.restore(self.sess, path + '/model.ckpt')
-
