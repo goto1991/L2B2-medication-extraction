@@ -6,14 +6,9 @@ from collections import Counter
 import numpy as np
 from sklearn.manifold import TSNE
 import random
-import tensorflow as tf
-import sklearn as sk
-import matplotlib.pyplot as plt
-import warnings
 
 from Set import pool
 from DS import DS
-from Iterator import Iterator
 
 from bokeh.models import ColumnDataSource, LabelSet
 from bokeh.plotting import figure, show, output_file
@@ -185,24 +180,42 @@ def label_words(Dataset, model):
     labelled = Dataset.get_DS(labelled='yes')
 
     for case in labelled.data:
-        for term in re.finditer(r'm="[a-z0-9 ]+"', case.raw_labels):
-            temp = term.group()[3:-1].split()
-            [medications.add(re.sub(r'\d+', '<num>', word)) for word in temp if (word not in stopwords) and (re.sub(r'\d+', '<num>', word)) in vocab]
-        for term in re.finditer(r'do="[a-z0-9 ]+"', case.raw_labels):
-            temp = term.group()[4:-1].split()
-            [dosages.add(re.sub(r'\d+', '<num>', word)) for word in temp if (word not in stopwords) and (re.sub(r'\d+', '<num>', word) in vocab)]
-        for term in re.finditer(r'mo="[a-z0-9 ]+"', case.raw_labels):
-            temp = term.group()[4:-1].split()
-            [modes.add(re.sub(r'\d+', '<num>', word)) for word in temp if (word not in stopwords) and (re.sub(r'\d+', '<num>', word) in vocab)]
-        for term in re.finditer(r'f="[a-z0-9 ]+"', case.raw_labels):
-            temp = term.group()[3:-1].split()
-            [frequencies.add(re.sub(r'\d+', '<num>', word)) for word in temp if (word not in stopwords) and (re.sub(r'\d+', '<num>', word) in vocab)]
-        for term in re.finditer(r'du="[a-z0-9 ]+"', case.raw_labels):
-            temp = term.group()[4:-1].split()
-            [durations.add(re.sub(r'\d+', '<num>', word)) for word in temp if (word not in stopwords) and (re.sub(r'\d+', '<num>', word) in vocab)]
-        for term in re.finditer(r'r="[a-z0-9 ]+"', case.raw_labels):
-            temp = term.group()[3:-1].split()
-            [reasons.add(re.sub(r'\d+', '<num>', word)) for word in temp if (word not in stopwords) and (re.sub(r'\d+', '<num>', word) in vocab)]
+        for term in re.finditer(r'm="[^"]+"', case.raw_labels):
+            term = term.group()[3:-1]
+            term = re.sub(r'\d+', '<num>', term)
+            term = re.sub(r'\.\.\.', ' ', term)
+            term = re.sub(r'[()]', ' ', term)
+            [medications.add(word) for word in term.split() if (word not in stopwords) and word in vocab]
+        for term in re.finditer(r'do="[^"]+"', case.raw_labels):
+            term = term.group()[4:-1]
+            term = re.sub(r'\d+', '<num>', term)
+            term = re.sub(r'\.\.\.', ' ', term)
+            term = re.sub(r'[()]', ' ', term)
+            [dosages.add(word) for word in term.split() if (word not in stopwords) and (word in vocab)]
+        for term in re.finditer(r'mo="[^"]+"', case.raw_labels):
+            term = term.group()[4:-1]
+            term = re.sub(r'\d+', '<num>', term)
+            term = re.sub(r'\.\.\.', ' ', term)
+            term = re.sub(r'[()]', ' ', term)
+            [modes.add(word) for word in term.split() if (word not in stopwords) and (word in vocab)]
+        for term in re.finditer(r'f="[^"]+"', case.raw_labels):
+            term = term.group()[3:-1]
+            term = re.sub(r'\d+', '<num>', term)
+            term = re.sub(r'\.\.\.', ' ', term)
+            term = re.sub(r'[()]', ' ', term)
+            [frequencies.add(word) for word in term.split() if (word not in stopwords) and (word in vocab)]
+        for term in re.finditer(r'du="[^"]+"', case.raw_labels):
+            term = term.group()[4:-1]
+            term = re.sub(r'\d+', '<num>', term)
+            term = re.sub(r'\.\.\.', ' ', term)
+            term = re.sub(r'[()]', ' ', term)
+            [durations.add(word) for word in term.split() if (word not in stopwords) and (word in vocab)]
+        for term in re.finditer(r'r="[^"]+"', case.raw_labels):
+            term = term.group()[3:-1]
+            term = re.sub(r'\d+', '<num>', term)
+            term = re.sub(r'\.\.\.', ' ', term)
+            term = re.sub(r'[()]', ' ', term)
+            [reasons.add(word) for word in term.split() if (word not in stopwords) and (word in vocab)]
 
     print('Number of: m={0}, do={1}, mo={2}, f={3}, du={4}, r={5}'.format(len(medications), len(dosages), len(modes), len(frequencies), len(durations), len(reasons)))
     return medications, dosages, modes, frequencies, durations, reasons

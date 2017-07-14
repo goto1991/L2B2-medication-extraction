@@ -133,13 +133,13 @@ class pool:
             text = case.raw_text
             text = text.split('\n')
             for i in range(len(text)):
-                text[i] = text[i].strip('.')
-                text[i] = re.sub(r'\d+', '<NUM>', text[i])
-                text[i] = re.sub(r'([A-Za-z]):', r'\1', text[i])
+                text[i] = text[i].strip('.')                    # Removing stops from end of lines
+                text[i] = re.sub(r'\d+', '<NUM>', text[i])      # Substituting numbers with number tokens
+                text[i] = re.sub(r'([A-Za-z]):', r'\1', text[i])# Removing colons from letter words
                 text[i] = re.sub(r'Dr.', 'Dr', text[i])
                 text[i] = re.sub(r'Mr.', 'Mr', text[i])
-                text[i] = re.sub(r'\. ([A-Z])', r'. A\1', text[i])
-                text[i] = re.sub(r'\. [A-Z]', ' ', text[i])
+                text[i] = re.sub(r'\. ([A-Z])', r'. A\1', text[i]) # Adding capial letter after new sentence
+                text[i] = re.sub(r'\. [A-Z]', ' ', text[i]) # Removing end of sentence stops
                 text[i] = text[i].lower()
                 text[i] = text[i].split()
             case.token_text = text
