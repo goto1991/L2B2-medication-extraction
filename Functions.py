@@ -54,7 +54,7 @@ def first_time_load():
     for filename in listdir_nohidden(path):
         index = filename.split('.')[0]
         with open(path + filename, 'r') as file:
-            dataset.addLabels(name=index, case='test', raw_labels=file.read())
+            dataset.add_labels(name=index, case='test', raw_labels=file.read())
 
     challenge = '2007 Smoking Challenge'
     path = [['', '/smokers_surrogate_train_all_version2.xml'], \
@@ -221,6 +221,76 @@ def label_words(Dataset, model):
     return medications, dosages, modes, frequencies, durations, reasons
 
 
+def write_sentences(sentences, path):
+    os.makedirs(path)
+    f = open(path + '/sentences', 'w+')
+    for sent in sentences:
+        for word in sent:
+            f.write(word + ' ')
+        f.write('\n')
+    f.close()
+    print('Sentence Write Complete')
+
+
+def load_sentences(path):
+    sentences = []
+    f = open(path + '/sentences', 'r')
+    for line in f:
+        sentences.append(line.split())
+    f.close()
+    print('Sentence Load Complete')
+    return sentences
+
+
+def write_emb(title, model):
+    try:
+        os.remove(title)
+    except OSError:
+        pass
+    f = open(title, 'w+')
+    f.write(' '.join([str(len(model.wv.vocab)), str(model.vector_size)]) + '\n')
+    for word in model.wv.vocab:
+        f.write(word + '\n')
+        f.write(' '.join(str(feature) for feature in model[word]) + '\n')
+    f.close()
+    print('Embeddings of %d words with length %d have ben written to %s' % (len(model.wv.vocab), model.vector_size, title))
+
+
+def load_emb(title):
+    model = {}
+    f = open(title, 'r')
+    word_num, vec_size = list(map(int, f.readline().split()))
+    for i in range(word_num):
+        word = f.readline().strip()
+        model[word] = list(map(float, f.readline().split()))
+    f.close()
+    print('Embeddings of %d words with length %d loaded from %s' % (word_num, vec_size, title))
+    return model
+
+
+def write_labels(dict, path):
+    os.makedirs(path)
+    for target in dict.keys():
+        temp = sorted((dict[target]))
+        f = open(path + '/' + target, 'w+')
+        for word in temp:
+            f.write(word + '\n')
+        f.close()
+    print('Label Write Complete')
+
+
+def load_labels(path):
+    dict = {}
+    for file in os.listdir(path):
+        dict[file] = set()
+        f = open(path + '/' + file)
+        for line in f:
+            dict[file].add(line.strip())
+        f.close()
+    print('Label Load Complete')
+    return dict
+
+
 def visualise(model, sentences, labels, topn=1000, title='T-SNE'):
     words = [word for sent in sentences for word in sent]
     cnt = np.array(Counter(words).most_common(topn))
@@ -258,7 +328,7 @@ def visualise(model, sentences, labels, topn=1000, title='T-SNE'):
     show(p)
 
 
-def get_naive_traintest(model, labels, train_size, test_size, train_label_percentage, test_label_percentage, word_repetition, label_repetition):
+def get_naive_traintest(vocab, labels, train_size, test_size, train_label_percentage=10, test_label_percentage=10, word_repetition=True, label_repetition=True, report=False):
     train_set = []
     train_labels = []
     train_size = train_size
@@ -266,66 +336,52 @@ def get_naive_traintest(model, labels, train_size, test_size, train_label_percen
     test_labels = []
     test_size = test_size
 
-    vocab = set(model.wv.vocab.keys())
+    vocab = set(vocab)
     target = set(labels)
 
     for i in range(train_size * (100 - train_label_percentage) // 100):
         word = random.sample(vocab, 1)
         while word[0] in labels:
             word = random.sample(vocab, 1)
-        train_set.append(model[word[0]])
-        if not word_repetition: vocab.discard(word[0])
+        train_set.append(word[0])
         train_labels.append([0, 1])
+        if not word_repetition: vocab.discard(word[0])
 
     for i in range(train_size * train_label_percentage // 100):
         word = random.sample(target, 1)
-        train_set.append(model[word[0]])
+        train_set.append(word[0])
         train_labels.append([1, 0])
         if not label_repetition: target.discard(word[0])
 
     for i in range(test_size * (100 - test_label_percentage) // 100):
         word = random.sample(vocab, 1)
         while word[0] in labels:
-            word = random.sample(vocab,1)
-        test_set.append(model[word[0]])
-        if not word_repetition: vocab.discard(word[0])
+            word = random.sample(vocab, 1)
+        test_set.append(word[0])
         test_labels.append([0, 1])
+        if not word_repetition: vocab.discard(word[0])
 
     for i in range(test_size * test_label_percentage // 100):
         word = random.sample(target, 1)
-        test_set.append(model[word[0]])
+        test_set.append(word[0])
         test_labels.append([1, 0])
         if not label_repetition: target.discard(word[0])
 
-    print('Train set size: %d \tPercentage of labels: %f' %(len(train_labels), np.array(train_labels).sum(0)[0]/len(train_labels)))
-    print('Test set size: %d \tPercentage of labels: %f' %(len(test_labels), np.array(test_labels).sum(0)[0] / len(test_labels)))
-    return train_set, train_labels, test_set, test_labels
+    if report:
+        print('Train set size: %d \tPercentage of labels: %f' %(len(train_labels), np.array(train_labels).sum(0)[0]/len(train_labels)))
+        print('Test set size: %d \tPercentage of labels: %f' %(len(test_labels), np.array(test_labels).sum(0)[0] / len(test_labels)))
+
+    word_sets = {'train_set': train_set, 'train_labels': train_labels, 'test_set': test_set, 'test_labels': test_labels}
+    return word_sets
 
 
-def write_emb(title, model):
-    try:
-        os.remove(title)
-    except OSError:
-        pass
-    f = open(title, 'w+')
-    f.write(' '.join([str(len(model.wv.vocab)), str(model.vector_size)]) + '\n')
-    for word in model.wv.vocab:
-        f.write(word + '\n')
-        f.write(' '.join(str(feature) for feature in model[word]) + '\n')
-    f.close()
-    print('Embeddings of %d words with length %d have ben written to %s' % (len(model.wv.vocab), model.vector_size, title))
-
-
-def load_emb(title):
-    model = {}
-    f = open(title, 'r')
-    word_num, vec_size = list(map(int, f.readline().split()))
-    for i in range(word_num):
-        word = f.readline().strip()
-        model[word] = list(map(float, f.readline().split()))
-    f.close()
-    print('Embeddings of %d words with length %d loaded from %s' % (word_num, vec_size, title))
-    return model
+def embed_words(word_sets, model):
+    emb_sets = {}
+    emb_sets['train_set'] = [model[word] for word in word_sets['train_set']]
+    emb_sets['train_labels'] = word_sets['train_labels']
+    emb_sets['test_set'] = [model[word] for word in word_sets['test_set']]
+    emb_sets['test_labels'] = word_sets['test_labels']
+    return emb_sets
 
 
 def get_traintest2(dataset, model):
@@ -350,45 +406,3 @@ def saturate_training_set(dataset, model, labels, share):
         print('Label proportion: %f' % (np.array(dataset['train_labels']).sum(0) / len(dataset['train_labels']))[0], end='\r')
 
 
-def write_sentences(sentences, path):
-    os.makedirs(path)
-    f = open(path + '/sentences', 'w+')
-    for sent in sentences:
-        for word in sent:
-            f.write(word + ' ')
-        f.write('\n')
-    f.close()
-    print('Sentence Write Complete')
-
-
-def load_sentences(path):
-    sentences = []
-    f = open(path + '/sentences', 'r')
-    for line in f:
-        sentences.append(line.split())
-    f.close()
-    print('Sentence Load Complete')
-    return sentences
-
-
-def write_labels(dict, path):
-    os.makedirs(path)
-    for target in dict.keys():
-        temp = sorted((dict[target]))
-        f = open(path + '/' + target, 'w+')
-        for word in temp:
-            f.write(word + '\n')
-        f.close()
-    print('Label Write Complete')
-
-
-def load_labels(path):
-    dict = {}
-    for file in os.listdir(path):
-        dict[file] = set()
-        f = open(path + '/' + file)
-        for line in f:
-            dict[file].add(line.strip())
-        f.close()
-    print('Label Load Complete')
-    return dict

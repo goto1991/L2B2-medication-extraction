@@ -26,7 +26,7 @@ class pool:
     def write_texts(self, path):
         os.makedirs(path)
         for i in range(self.size):
-            f = open(path + str(i).zfill(4) + '_' + self.data[i].challenge + '_' + self.data[i].stage + '_' + self.data[i].labelled + '_' + self.data[i].label_type + '_' + self.data[i].name, 'w+')
+            f = open(path + '/' + str(i).zfill(4) + '_' + self.data[i].challenge + '_' + self.data[i].stage + '_' + self.data[i].labelled + '_' + self.data[i].label_type + '_' + self.data[i].name, 'w+')
             f.write(self.data[i].raw_text)
             f.close()
         print('raw_text Write Complete')
@@ -35,7 +35,7 @@ class pool:
         os.makedirs(path)
         for i in range(self.size):
             if self.data[i].labelled == 'yes':
-                f = open(path + str(i).zfill(4) + '_' + self.data[i].challenge + '_' + self.data[i].stage + '_' + self.data[i].labelled + '_' + self.data[i].label_type + '_' + self.data[i].name, 'w+')
+                f = open(path + '/' + str(i).zfill(4) + '_' + self.data[i].challenge + '_' + self.data[i].stage + '_' + self.data[i].labelled + '_' + self.data[i].label_type + '_' + self.data[i].name, 'w+')
                 f.write(self.data[i].raw_labels)
                 f.close()
         print('raw_labels Write Complete')

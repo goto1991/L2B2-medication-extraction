@@ -77,15 +77,18 @@ class FF_Model:
             'ts': train_step
         }
 
-    def train(self, sets, epochs=10, batch=50, report_percentage=1):
+    def train(self, sets, epochs=10, batch=50, report_percentage=1, show_plot=False):
         # Start a tf session and run the optimisation algorithm
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
 
         trainer = Iterator(sets['train_set'], sets['train_labels'])
+
         validation_truth = np.argmax(sets['validation_labels'], 1)
         test_truth = np.argmax(sets['test_labels'], 1)
+
         mark = (epochs * (len(sets['train_set']) // batch) * report_percentage) // 100
+
         train_feed = {self.graph['x']: sets['train_set'],
                       self.graph['y_']: sets['train_labels'],
                       self.graph['keep_prob']: 1.0}
@@ -95,9 +98,12 @@ class FF_Model:
         test_feed = {self.graph['x']: sets['test_set'],
                      self.graph['y_']: sets['test_labels'],
                      self.graph['keep_prob']: 1.0}
+
         train_accuracy = []
         validation_accuracy = []
         validation_f1_score = []
+        test_f1_score = 0
+
         check_point = []
         N = 0
 
@@ -116,21 +122,25 @@ class FF_Model:
             N += 1
         warnings.simplefilter("default")
 
-        np_check_point = np.array(check_point)
-        np_train_accuracy = np.array(train_accuracy)
-        np_test_accuracy = np.array(validation_accuracy)
-        np_validation_f1_score = np.array(validation_f1_score)
+        if show_plot:
+            np_check_point = np.array(check_point)
+            np_train_accuracy = np.array(train_accuracy)
+            np_test_accuracy = np.array(validation_accuracy)
+            np_validation_f1_score = np.array(validation_f1_score)
 
-        plt.plot(np_check_point, np_train_accuracy, label="Train Accuracy")
-        plt.plot(np_check_point, np_test_accuracy, label="Validation Accuracy")
-        plt.plot(np_check_point, np_validation_f1_score, label="Validation F1-Score")
-        plt.xlabel("Batches")
-        plt.ylabel("Performance Values")
-        plt.legend()
-        plt.show()
-        print('FInal Accuracies: tr: %s, va: %s' % (train_accuracy[-1], validation_accuracy[-1]))
-        print("Test F1-Score: %f\n" % (
-        sk.metrics.f1_score(test_truth, self.sess.run(self.graph['prediction'], feed_dict=test_feed), pos_label=0)))
+            plt.plot(np_check_point, np_train_accuracy, label="Train Accuracy")
+            plt.plot(np_check_point, np_test_accuracy, label="Validation Accuracy")
+            plt.plot(np_check_point, np_validation_f1_score, label="Validation F1-Score")
+            plt.xlabel("Batches")
+            plt.ylabel("Performance Values")
+            plt.legend()
+            plt.show()
+
+        test_f1_score = sk.metrics.f1_score(test_truth, self.sess.run(self.graph['prediction'], feed_dict=test_feed), pos_label=0)
+        print('FInal Values: TrAcc: %g, ValAcc: %g, ValF1: %g' % (train_accuracy[-1], validation_accuracy[-1], validation_f1_score[-1]))
+        print("Test F1-Score: %g\n" % (test_f1_score))
+
+        return train_accuracy, validation_accuracy, validation_f1_score, test_f1_score
 
     def predict(self, data):
         dummy = [[1, 1] for i in range(len(data))]
