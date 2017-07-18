@@ -49,7 +49,7 @@ def first_time_load():
     for filename in listdir_nohidden(path):
         index = filename.split('_')[0]
         with open(path + filename, 'r') as file:
-            dataset.addLabels(name=index, case='train', raw_labels=file.read())
+            dataset.add_labels(name=index, case='train', raw_labels=file.read())
     path = challenge + '/test.BYparticipant.ground_truth/converted.noduplicates.sorted/'
     for filename in listdir_nohidden(path):
         index = filename.split('.')[0]
@@ -258,7 +258,7 @@ def visualise(model, sentences, labels, topn=1000, title='T-SNE'):
     show(p)
 
 
-def get_traintest(model, labels, train_size, test_size, train_label_percentage, test_label_percentage, word_repetition, label_repetition):
+def get_naive_traintest(model, labels, train_size, test_size, train_label_percentage, test_label_percentage, word_repetition, label_repetition):
     train_set = []
     train_labels = []
     train_size = train_size
@@ -348,3 +348,47 @@ def saturate_training_set(dataset, model, labels, share):
             dataset['train_set'].append(model[med])
             dataset['train_labels'].append([1, 0])
         print('Label proportion: %f' % (np.array(dataset['train_labels']).sum(0) / len(dataset['train_labels']))[0], end='\r')
+
+
+def write_sentences(sentences, path):
+    os.makedirs(path)
+    f = open(path + '/sentences', 'w+')
+    for sent in sentences:
+        for word in sent:
+            f.write(word + ' ')
+        f.write('\n')
+    f.close()
+    print('Sentence Write Complete')
+
+
+def load_sentences(path):
+    sentences = []
+    f = open(path + '/sentences', 'r')
+    for line in f:
+        sentences.append(line.split())
+    f.close()
+    print('Sentence Load Complete')
+    return sentences
+
+
+def write_labels(dict, path):
+    os.makedirs(path)
+    for target in dict.keys():
+        temp = sorted((dict[target]))
+        f = open(path + '/' + target, 'w+')
+        for word in temp:
+            f.write(word + '\n')
+        f.close()
+    print('Label Write Complete')
+
+
+def load_labels(path):
+    dict = {}
+    for file in os.listdir(path):
+        dict[file] = set()
+        f = open(path + '/' + file)
+        for line in f:
+            dict[file].add(line.strip())
+        f.close()
+    print('Label Load Complete')
+    return dict

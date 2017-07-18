@@ -23,8 +23,7 @@ class pool:
             return 1
         return 0
 
-    def write_texts(self):
-        path = 'raw_text/'
+    def write_texts(self, path):
         os.makedirs(path)
         for i in range(self.size):
             f = open(path + str(i).zfill(4) + '_' + self.data[i].challenge + '_' + self.data[i].stage + '_' + self.data[i].labelled + '_' + self.data[i].label_type + '_' + self.data[i].name, 'w+')
@@ -32,8 +31,7 @@ class pool:
             f.close()
         print('raw_text Write Complete')
 
-    def write_labels(self):
-        path = 'raw_labels/'
+    def write_labels(self, path):
         os.makedirs(path)
         for i in range(self.size):
             if self.data[i].labelled == 'yes':
@@ -42,20 +40,20 @@ class pool:
                 f.close()
         print('raw_labels Write Complete')
 
-    def load_texts(self):
-        for filename in fn.listdir_nohidden('raw_text'):
+    def load_texts(self, path):
+        for filename in fn.listdir_nohidden(path):
             info = filename.split('_')
-            with open('raw_text/' + filename, 'r') as file:
+            with open(path + '/' + filename, 'r') as file:
                 temp = DS(name=info[0], challenge=info[1], stage=info[2], raw_text=file.read())
                 self.add(temp)
-        print('Texts loaded')
+        print('Raw Text Load Complete')
 
-    def load_labels(self):
-        for filename in fn.listdir_nohidden('raw_labels'):
+    def load_labels(self, path):
+        for filename in fn.listdir_nohidden(path):
             info = filename.split('_')
-            with open('raw_labels/' + filename, 'r') as file:
+            with open(path + '/' + filename, 'r') as file:
                 self.add_labels(name=info[0], case=info[4], raw_labels=file.read())
-        print('Labels loaded')
+        print('Raw Labels Load Complete')
 
     def number_of(self, challenge=r'.', stage=r'.', labelled=r'.', label_type=r'.'):
         n = 0
