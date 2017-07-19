@@ -217,7 +217,7 @@ def label_words(Dataset, model):
             term = re.sub(r'[()]', ' ', term)
             [reasons.add(word) for word in term.split() if (word not in stopwords) and (word in vocab)]
 
-    print('Number of: m={0}, do={1}, mo={2}, f={3}, du={4}, r={5}'.format(len(medications), len(dosages), len(modes), len(frequencies), len(durations), len(reasons)))
+    print('Number of: m={}, do={}, mo={}, f={}, du={}, r={}'.format(len(medications), len(dosages), len(modes), len(frequencies), len(durations), len(reasons)))
     return medications, dosages, modes, frequencies, durations, reasons
 
 

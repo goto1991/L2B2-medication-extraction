@@ -30,8 +30,8 @@ class DS:
             self.emb_text.append(temp[i].split())
 
     def show_info(self):
-        print('Name: ', self.name, )
-        print('Challenge: ', self.challenge, )
-        print('Train or Test Set: ', self.stage, )
-        print('Labelled: ', self.labelled, )
-        print('Labeling Type: ', self.label_type, )
+        print('Name: ', self.name)
+        print('Challenge: ', self.challenge)
+        print('Train or Test Set: ', self.stage)
+        print('Labelled: ', self.labelled)
+        print('Labeling Type: ', self.label_type)
