@@ -328,7 +328,7 @@ def visualise(model, sentences, labels, topn=1000, title='T-SNE'):
     show(p)
 
 
-def get_naive_traintest(vocab, labels, train_size, test_size, train_label_percentage=10, test_label_percentage=10, word_repetition=True, label_repetition=True, report=False):
+def generate_naive_traintest(vocab, labels, train_size, test_size, train_label_percentage=10, test_label_percentage=10, word_repetition=True, label_repetition=True, report=False):
     train_set = []
     train_labels = []
     train_size = train_size
@@ -384,21 +384,38 @@ def embed_words(word_sets, model):
     return emb_sets
 
 
-def get_traintest2(dataset, model):
-        ten_percent = len(dataset.data) // 10
+def get_ff_traintest(dataset, model, left_words=0, right_words=0):
+    padded_texts = [['<pad>' for i in range(left_words)] + case.test_text + ['<pad>' for i in range(right_words)] for case in dataset.data]
 
-        train_set = [model[word] if word in model.wv.vocab else np.zeros(model.vector_size) for case in dataset.data[:-2*ten_percent] for word in case.test_text]
-        train_labels = [label for case in dataset.data[:-2*ten_percent] for label in case.test_labels]
-        validation_set = [model[word] if word in model.wv.vocab else np.zeros(model.vector_size) for case in dataset.data[-2*ten_percent:-ten_percent] for word in case.test_text]
-        validation_labels = [label for case in dataset.data[-2*ten_percent:-ten_percent] for label in case.test_labels]
-        test_set = [model[word] if word in model.wv.vocab else np.zeros(model.vector_size) for case in dataset.data[-ten_percent:] for word in case.test_text]
-        test_labels = [label for case in dataset.data[-ten_percent:] for label in case.test_labels]
-        test_words = [word for case in dataset.data[-ten_percent:] for word in case.test_text]
+    vectorized_texts = []
+    for text in padded_texts:
+        text_vector = []
+        for i in range(left_words, len(text) - right_words):
+            word_vector = [text[i + pos] for pos in range(-left_words, right_words + 1)]
+            word_vector = np.concatenate(
+                [model[word] if word in model.wv.vocab else np.zeros(model.vector_size) for word in word_vector])
+            text_vector.append(word_vector)
+        vectorized_texts.append(text_vector)
 
-        return {'train_set': train_set, 'train_labels': train_labels, 'validation_set': validation_set, 'validation_labels': validation_labels, 'test_set': test_set, 'test_labels': test_labels, 'test_words': test_words}
+    ten_percent = len(dataset.data) // 10
+
+    train_set = [vector for case in vectorized_texts[:-2 * ten_percent] for vector in case]
+    train_labels = [label for case in dataset.data[:-2 * ten_percent] for label in case.test_labels]
+    validation_set = [vector for case in vectorized_texts[-2 * ten_percent:-ten_percent] for vector in case]
+    validation_labels = [label for case in dataset.data[-2 * ten_percent:-ten_percent] for label in case.test_labels]
+    test_set = [vector for case in vectorized_texts[-ten_percent:] for vector in case]
+    test_labels = [label for case in dataset.data[-ten_percent:] for label in case.test_labels]
+    test_words = [word for case in dataset.data[-ten_percent:] for word in case.test_text]
+
+    return {'train_set': train_set,
+            'train_labels': train_labels,
+            'validation_set': validation_set,
+            'validation_labels': validation_labels,
+            'test_set': test_set, 'test_labels': test_labels,
+            'test_words': test_words}
 
 
-def saturate_training_set(dataset, model, labels, share):
+def saturate_training_set_labels(dataset, model, labels, share):
     while (np.array(dataset['train_labels']).sum(0) / len(dataset['train_labels']))[0] < share:
         for med in labels:
             dataset['train_set'].append(model[med])
@@ -406,3 +423,14 @@ def saturate_training_set(dataset, model, labels, share):
         print('Label proportion: %f' % (np.array(dataset['train_labels']).sum(0) / len(dataset['train_labels']))[0], end='\r')
 
 
+def saturate_training_set_training(dataset, share):
+    targets = []
+    for i in range(len(dataset['train_set'])):
+        if dataset['train_labels'][i] == [1, 0]: targets.append(dataset['train_set'][i])
+
+    while (np.array(dataset['train_labels']).sum(0) / len(dataset['train_labels']))[0] < share:
+        for med in targets:
+            dataset['train_set'].append(med)
+            dataset['train_labels'].append([1, 0])
+        print('Label proportion: {:.3f}'.format(
+            (np.array(dataset['train_labels']).sum(0) / len(dataset['train_labels']))[0]), end='\r')
