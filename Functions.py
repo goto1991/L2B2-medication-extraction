@@ -420,7 +420,6 @@ def saturate_training_set_labels(dataset, model, labels, share):
         for med in labels:
             dataset['train_set'].append(model[med])
             dataset['train_labels'].append([1, 0])
-        print('Label proportion: %f' % (np.array(dataset['train_labels']).sum(0) / len(dataset['train_labels']))[0], end='\r')
 
 
 def saturate_training_set_training(dataset, share):
@@ -432,5 +431,3 @@ def saturate_training_set_training(dataset, share):
         for med in targets:
             dataset['train_set'].append(med)
             dataset['train_labels'].append([1, 0])
-        print('Label proportion: {:.3f}'.format(
-            (np.array(dataset['train_labels']).sum(0) / len(dataset['train_labels']))[0]), end='\r')
