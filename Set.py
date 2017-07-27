@@ -181,4 +181,4 @@ class pool:
                         else:
                             truth.append([0, 1])
             case.test_labels = truth
-            case.test_text = [word for sentence in case.token_text for word in sentence]
+            case.test_text = [word for row in case.token_text for word in row]
