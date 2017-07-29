@@ -1,5 +1,6 @@
 import re
 import os
+import numpy as np
 
 import Functions as fn
 from DS import DS
@@ -7,7 +8,7 @@ from DS import DS
 
 class pool:
     def __init__(self, data=[]):
-        self.data = []
+        self.data = data
         self.size = len(data)
 
     def present(self, item):
@@ -22,6 +23,14 @@ class pool:
             self.size += 1
             return 1
         return 0
+
+    def add_labels(self, name, case, raw_labels):
+        for i in range(self.size):
+            if self.data[i].name == name:
+                self.data[i].labelled = 'yes'
+                self.data[i].label_type = case
+                self.data[i].raw_labels = raw_labels
+                break
 
     def write_texts(self, path):
         os.makedirs(path)
@@ -66,7 +75,7 @@ class pool:
         return (n)
 
     def get_DS(self, name=r'.', challenge=r'.', stage=r'.', labelled=r'.', label_type=r'.'):
-        output = pool()
+        output = pool([])
         for case in self.data:
             if (re.match(name, case.name) != None) & \
                     (re.match(challenge, case.challenge) != None) & \
@@ -74,7 +83,7 @@ class pool:
                     (re.match(labelled, case.labelled) != None) & \
                     (re.match(label_type, case.label_type) != None):
                 output.add(case)
-        return (output)
+        return output
 
     def show_info(self):
         for case in self.data:
@@ -106,14 +115,6 @@ class pool:
                     if occurrence > 1:
                         return self.data[i], self.data[j]
 
-    def add_labels(self, name, case, raw_labels):
-        for i in range(self.size):
-            if self.data[i].name == name:
-                self.data[i].labelled = 'yes'
-                self.data[i].label_type = case
-                self.data[i].raw_labels = raw_labels
-                break
-
     def process_for_embedding(self):
         for i in range(self.size):
             self.data[i].process_for_embedding()
@@ -127,58 +128,36 @@ class pool:
         return sentences
 
     def process_for_testing(self):
-        for case in self.data:
-            text = case.raw_text
-            text = text.split('\n')
-            for i in range(len(text)):
-                text[i] = text[i].strip('.')                    # Removing stops from end of lines
-                text[i] = re.sub(r'\d+', '<NUM>', text[i])      # Substituting numbers with number tokens
-                text[i] = re.sub(r'([A-Za-z]):', r'\1', text[i])# Removing colons from letter words
-                text[i] = re.sub(r'Dr.', 'Dr', text[i])
-                text[i] = re.sub(r'Mr.', 'Mr', text[i])
-                text[i] = re.sub(r'\. ([A-Z])', r'. A\1', text[i]) # Adding capial letter after new sentence
-                text[i] = re.sub(r'\. [A-Z]', ' ', text[i]) # Removing end of sentence stops
-                text[i] = text[i].lower()
-                text[i] = text[i].split()
-            case.token_text = text
+        for i in range(self.size):
+            self.data[i].process_for_testing()
 
-            indices = []
-            second = False
-            for term in re.finditer(r'm="[^|]+\|', case.raw_labels):
-                term = term.group()
-                index = []
-                for window in re.finditer(r'\d+:\d+', term):
-                    index.append(list(map(int, window.group().split(':'))))
-                    if second:
-                        indices.append(index)
-                        index = []
-                    second = not second
-            indices.sort()
-            indices.append([[0, 0], [0, 0]])
+    def get_ff_sets(self, model, left_words=0, right_words=0):
+        padded_texts = [['<pad>' for i in range(left_words)] + case.test_text + ['<pad>' for i in range(right_words)]
+                        for case in self.data]
 
-            truth = []
-            c = 0
-            inside = False
-            for i in range(len(text)):
-                for j in range(len(text[i])):
-                    if inside:
-                        if i + 1 < indices[c][1][0]:
-                            truth.append([1, 0])
-                        elif i + 1 == indices[c][1][0]:
-                            if j < indices[c][1][1]:
-                                truth.append([1, 0])
-                            elif j == indices[c][1][1]:
-                                truth.append([1, 0])
-                                inside = False
-                                c += 1
-                    else:
-                        if [i + 1, j] == indices[c][0]:
-                            truth.append([1, 0])
-                            if [i + 1, j] == indices[c][1]:
-                                c += 1
-                            else:
-                                inside = True
-                        else:
-                            truth.append([0, 1])
-            case.test_labels = truth
-            case.test_text = [word for row in case.token_text for word in row]
+        vectorized_texts = []
+        for text in padded_texts:
+            for i in range(left_words, len(text) - right_words):
+                word_vector = [text[i + pos] for pos in range(-left_words, right_words + 1)]
+                word_vector = np.concatenate(
+                    [model[word] if word in model.wv.vocab else np.zeros(model.vector_size) for word in word_vector])
+                vectorized_texts.append(word_vector)
+
+        label_set = [label for case in self.data for label in case.test_labels]
+        test_words = [word for case in self.data for word in case.test_text]
+
+        return vectorized_texts, label_set, test_words
+
+    def get_rnn_sets(self, word_indices, left_words=0, right_words=0):
+        padded_texts = [['<pad>' for i in range(left_words)] + case.test_text + ['<pad>' for i in range(right_words)]
+                        for case in self.data]
+
+        sequence_set = []
+        for text in padded_texts:
+            for i in range(left_words, len(text) - right_words):
+                word_sequence = [text[i + pos] for pos in range(-left_words, right_words + 1)]
+                word_sequence = [word_indices[word] if word in word_indices.keys() else 1 for word in word_sequence]
+                sequence_set.append(word_sequence)
+
+        label_set = [label for case in self.data for label in case.test_labels]
+        return sequence_set, label_set

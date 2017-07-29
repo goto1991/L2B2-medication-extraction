@@ -291,6 +291,45 @@ def load_labels(path):
     return dict
 
 
+def write_word_indices(word_indices, path):
+    os.makedirs(path)
+    with open(path + '/word_indices', 'w+') as f:
+        for word in word_indices:
+            f.write(word + ' ' + str(word_indices[word]))
+            f.write('\n')
+    print('Word Indices Write Complete')
+
+
+def load_word_indices(path):
+    word_indices = {}
+    with open(path + '/word_indices', 'r') as f:
+        for line in f:
+            word, index = line.split()
+            word_indices[word] = int(index)
+    print('Word Indices Load Complete')
+    return word_indices
+
+
+def write_emb_layer(emb_layer, path):
+    os.makedirs(path)
+    with open(path + '/emb_layer', 'w+') as f:
+        word_num, emb_size = np.shape(emb_layer)
+        f.write(' '.join([str(word_num), str(emb_size)]) + '\n')
+        for embedding in emb_layer:
+            f.write(' '.join(str(feature) for feature in embedding) + '\n')
+    print('Embedding Layer Write Complete')
+
+
+def load_emb_layer(path):
+    with open(path + '/emb_layer', 'r') as f:
+        word_num, emb_size = list(map(int, f.readline().split()))
+        emb_layer = np.empty([word_num, emb_size], dtype=np.float32)
+        for i in range(word_num):
+            emb_layer[i] = np.array((list(map(np.float32, f.readline().split()))))
+    print('Embedding Layer Load Complete')
+    return emb_layer
+
+
 def visualise(model, sentences, labels, topn=1000, title='T-SNE'):
     words = [word for sent in sentences for word in sent]
     cnt = np.array(Counter(words).most_common(topn))
@@ -422,12 +461,25 @@ def saturate_training_set_labels(dataset, model, labels, share):
             dataset['train_labels'].append([1, 0])
 
 
-def saturate_training_set_training(dataset, share):
+def saturate_training_set_training(feed, labels, share):
     targets = []
-    for i in range(len(dataset['train_set'])):
-        if dataset['train_labels'][i] == [1, 0]: targets.append(dataset['train_set'][i])
+    for i in range(len(feed)):
+        if labels[i] == [1, 0]: targets.append(feed[i])
 
-    while (np.array(dataset['train_labels']).sum(0) / len(dataset['train_labels']))[0] < share:
+    while (np.array(labels).sum(0) / len(labels))[0] < share:
         for med in targets:
-            dataset['train_set'].append(med)
-            dataset['train_labels'].append([1, 0])
+            feed.append(med)
+            labels.append([1, 0])
+
+
+def get_index_and_emb_layer(model):
+    word_indices = {'<pad>': 0, '<unk>': 1}
+    emb_layer = np.empty([len(model.wv.vocab) + 2, model.vector_size])
+    emb_layer[:2] = np.zeros(100)
+    i = 2
+
+    for word in model.wv.vocab.keys():
+        word_indices[word] = i
+        emb_layer[i] = model[word]
+        i += 1
+    return word_indices, emb_layer
