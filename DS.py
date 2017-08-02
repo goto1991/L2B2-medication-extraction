@@ -37,7 +37,7 @@ class DS:
             text[i] = re.sub(r'([A-Za-z]):', r'\1', text[i])  # Removing colons from letter words
             text[i] = re.sub(r'Dr.', 'Dr', text[i])
             text[i] = re.sub(r'Mr.', 'Mr', text[i])
-            text[i] = re.sub(r'\. ([A-Z])', r'. A\1', text[i])  # Adding capial letter after new sentence
+            text[i] = re.sub(r'\. ([A-Z])', r'. A\1', text[i])  # Adding capital letter after new sentence
             text[i] = re.sub(r'\. [A-Z]', ' ', text[i])  # Removing end of sentence stops
             text[i] = text[i].lower()
             text[i] = text[i].split()
@@ -51,7 +51,8 @@ class DS:
             for window in re.finditer(r'\d+:\d+', term):
                 index.append(list(map(int, window.group().split(':'))))
                 if second:
-                    indices.append(index)
+                    if index not in indices:
+                        indices.append(index)
                     index = []
                 second = not second
         indices.sort()

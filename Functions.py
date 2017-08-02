@@ -423,37 +423,6 @@ def embed_words(word_sets, model):
     return emb_sets
 
 
-def get_ff_traintest(dataset, model, left_words=0, right_words=0):
-    padded_texts = [['<pad>' for i in range(left_words)] + case.test_text + ['<pad>' for i in range(right_words)] for case in dataset.data]
-
-    vectorized_texts = []
-    for text in padded_texts:
-        text_vector = []
-        for i in range(left_words, len(text) - right_words):
-            word_vector = [text[i + pos] for pos in range(-left_words, right_words + 1)]
-            word_vector = np.concatenate(
-                [model[word] if word in model.wv.vocab else np.zeros(model.vector_size) for word in word_vector])
-            text_vector.append(word_vector)
-        vectorized_texts.append(text_vector)
-
-    ten_percent = len(dataset.data) // 10
-
-    train_set = [vector for case in vectorized_texts[:-2 * ten_percent] for vector in case]
-    train_labels = [label for case in dataset.data[:-2 * ten_percent] for label in case.test_labels]
-    validation_set = [vector for case in vectorized_texts[-2 * ten_percent:-ten_percent] for vector in case]
-    validation_labels = [label for case in dataset.data[-2 * ten_percent:-ten_percent] for label in case.test_labels]
-    test_set = [vector for case in vectorized_texts[-ten_percent:] for vector in case]
-    test_labels = [label for case in dataset.data[-ten_percent:] for label in case.test_labels]
-    test_words = [word for case in dataset.data[-ten_percent:] for word in case.test_text]
-
-    return {'train_set': train_set,
-            'train_labels': train_labels,
-            'validation_set': validation_set,
-            'validation_labels': validation_labels,
-            'test_set': test_set, 'test_labels': test_labels,
-            'test_words': test_words}
-
-
 def saturate_training_set_labels(dataset, model, labels, share):
     while (np.array(dataset['train_labels']).sum(0) / len(dataset['train_labels']))[0] < share:
         for med in labels:
@@ -483,3 +452,12 @@ def get_index_and_emb_layer(model):
         emb_layer[i] = model[word]
         i += 1
     return word_indices, emb_layer
+
+
+def postprocess():
+    print('a')
+
+def performance_analysis_FF(NN, test_set, test_labels, test_words):
+    res = NN.predict(test_set)
+    tru = np.argmax(test_labels)
+
