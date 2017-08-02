@@ -9,7 +9,7 @@ from Iterator import Iterator
 
 class RNN_Model:
 
-    def __init__(self, vocab_size, state_size, num_classes, window, dropout=1.0, learn_rate=0.01, emb_layer=[]):
+    def __init__(self, vocab_size, state_size, num_classes, window, dropout=1.0, learn_rate=0.01, emb_layer=False):
         self.vocab_size = vocab_size
         self.state_size = state_size
         self.num_classes = num_classes
@@ -30,21 +30,18 @@ class RNN_Model:
 
         # Placeholders
         x = tf.placeholder(tf.int32, shape=[None, self.window])  # [batch_size, num_steps]
-        # seqlen = tf.constant(tf.int32, self.window)
         y = tf.placeholder(tf.int32, shape=[None])
         keep_prob = tf.constant(1.0)
 
         # Embedding layer
-        if self.emb_layer == []:
+        if type(self.emb_layer) != bool:
             embeddings = tf.get_variable('embedding_matrix', [self.vocab_size, self.state_size])
         else:
             embeddings = tf.get_variable('embedding_matrix', initializer=tf.constant(self.emb_layer))
         rnn_inputs = tf.nn.embedding_lookup(embeddings, x)
 
         # RNN
-        cell = tf.nn.rnn_cell.LSTMCell(self.state_size)
-        # init_state = tf.get_variable('init_state', [1, 2 * self.state_size], initializer=tf.constant_initializer(0.0))
-        # init_state = tf.tile(init_state, [batch_size, 1])
+        cell = tf.nn.rnn_cell.LSTMCell(self.state_size, activation=sigmoid)
         rnn_outputs, final_state = tf.nn.dynamic_rnn(cell, rnn_inputs, dtype=tf.float32)
 
         # Add dropout, as the model otherwise quickly overfits
@@ -63,7 +60,9 @@ class RNN_Model:
         # idx = tf.range(batch_size)*tf.shape(rnn_outputs)[1] + (seqlen - 1)
         # last_rnn_output = tf.gather(tf.reshape(rnn_outputs, [-1, state_size]), idx)
 
-        last_rnn_output = tf.reduce_mean(rnn_outputs, 1)
+        # last_rnn_output = tf.reduce_mean(rnn_outputs, 1)
+
+        last_rnn_output = rnn_outputs[:, -1, :]
 
         # Softmax layer
         with tf.variable_scope('softmax'):
