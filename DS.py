@@ -20,12 +20,14 @@ class DS:
         temp = re.sub(r'\d+', '<NUM>', temp)
         temp = re.sub(r'([A-Za-z]):', r'\1', temp)
         temp = re.sub(r'\n', ' ', temp)
-        temp = re.sub(r'Dr.', 'Dr', temp)
-        temp = re.sub(r'Mr.', 'Mr', temp)
+        temp = re.sub(r'Dr\.', 'Dr', temp)
+        temp = re.sub(r'Mr\.', 'Mr', temp)
         temp = re.sub(r'\. ([A-Z])', r'. A\1', temp)
+        temp = re.sub(r'([A-Za-z]);', r'\1', temp)
         temp = re.split(r'\. [A-Z]', temp)
         for i in range(len(temp)):
             temp[i] = temp[i].lower()
+            temp[i] = re.sub(r'([A-Za-z])\.', r'\1', temp[i])
             self.emb_text.append(temp[i].split())
 
     def process_for_testing(self):
@@ -35,10 +37,10 @@ class DS:
             text[i] = text[i].strip('.')  # Removing stops from end of lines
             text[i] = re.sub(r'\d+', '<NUM>', text[i])  # Substituting numbers with number tokens
             text[i] = re.sub(r'([A-Za-z]):', r'\1', text[i])  # Removing colons from letter words
-            text[i] = re.sub(r'Dr.', 'Dr', text[i])
-            text[i] = re.sub(r'Mr.', 'Mr', text[i])
-            text[i] = re.sub(r'\. ([A-Z])', r'. A\1', text[i])  # Adding capital letter after new sentence
-            text[i] = re.sub(r'\. [A-Z]', ' ', text[i])  # Removing end of sentence stops
+            text[i] = re.sub(r'Dr\.', 'Dr', text[i])
+            text[i] = re.sub(r'Mr\.', 'Mr', text[i])
+            text[i] = re.sub(r'([A-Za-z])\.', r'\1', text[i])
+            text[i] = re.sub(r'([A-Za-z]);', r'\1', text[i])
             text[i] = text[i].lower()
             text[i] = text[i].split()
         self.token_text = text

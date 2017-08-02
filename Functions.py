@@ -184,36 +184,48 @@ def label_words(Dataset, model):
             term = term.group()[3:-1]
             term = re.sub(r'\d+', '<num>', term)
             term = re.sub(r'\.\.\.', ' ', term)
+            term = re.sub(r'([A-Za-z])\.', r'\1', term)
+            term = re.sub(r'([A-Za-z]);', r'\1', term)
             term = re.sub(r'[()]', ' ', term)
             [medications.add(word) for word in term.split() if (word not in stopwords) and word in vocab]
         for term in re.finditer(r'do="[^"]+"', case.raw_labels):
             term = term.group()[4:-1]
             term = re.sub(r'\d+', '<num>', term)
             term = re.sub(r'\.\.\.', ' ', term)
+            term = re.sub(r'([A-Za-z])\.', r'\1', term)
+            term = re.sub(r'([A-Za-z]);', r'\1', term)
             term = re.sub(r'[()]', ' ', term)
             [dosages.add(word) for word in term.split() if (word not in stopwords) and (word in vocab)]
         for term in re.finditer(r'mo="[^"]+"', case.raw_labels):
             term = term.group()[4:-1]
             term = re.sub(r'\d+', '<num>', term)
             term = re.sub(r'\.\.\.', ' ', term)
+            term = re.sub(r'([A-Za-z])\.', r'\1', term)
+            term = re.sub(r'([A-Za-z]);', r'\1', term)
             term = re.sub(r'[()]', ' ', term)
             [modes.add(word) for word in term.split() if (word not in stopwords) and (word in vocab)]
         for term in re.finditer(r'f="[^"]+"', case.raw_labels):
             term = term.group()[3:-1]
             term = re.sub(r'\d+', '<num>', term)
             term = re.sub(r'\.\.\.', ' ', term)
+            term = re.sub(r'([A-Za-z])\.', r'\1', term)
+            term = re.sub(r'([A-Za-z]);', r'\1', term)
             term = re.sub(r'[()]', ' ', term)
             [frequencies.add(word) for word in term.split() if (word not in stopwords) and (word in vocab)]
         for term in re.finditer(r'du="[^"]+"', case.raw_labels):
             term = term.group()[4:-1]
             term = re.sub(r'\d+', '<num>', term)
             term = re.sub(r'\.\.\.', ' ', term)
+            term = re.sub(r'([A-Za-z])\.', r'\1', term)
+            term = re.sub(r'([A-Za-z]);', r'\1', term)
             term = re.sub(r'[()]', ' ', term)
             [durations.add(word) for word in term.split() if (word not in stopwords) and (word in vocab)]
         for term in re.finditer(r'r="[^"]+"', case.raw_labels):
             term = term.group()[3:-1]
             term = re.sub(r'\d+', '<num>', term)
             term = re.sub(r'\.\.\.', ' ', term)
+            term = re.sub(r'([A-Za-z])\.', r'\1', term)
+            term = re.sub(r'([A-Za-z]);', r'\1', term)
             term = re.sub(r'[()]', ' ', term)
             [reasons.add(word) for word in term.split() if (word not in stopwords) and (word in vocab)]
 

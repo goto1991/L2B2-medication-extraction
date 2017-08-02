@@ -41,7 +41,7 @@ class RNN_Model:
         rnn_inputs = tf.nn.embedding_lookup(embeddings, x)
 
         # RNN
-        cell = tf.nn.rnn_cell.LSTMCell(self.state_size, activation=sigmoid)
+        cell = tf.nn.rnn_cell.LSTMCell(self.state_size)
         rnn_outputs, final_state = tf.nn.dynamic_rnn(cell, rnn_inputs, dtype=tf.float32)
 
         # Add dropout, as the model otherwise quickly overfits

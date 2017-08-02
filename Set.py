@@ -144,9 +144,9 @@ class pool:
                 vectorized_texts.append(word_vector)
 
         label_set = [label for case in self.data for label in case.test_labels]
-        test_words = [word for case in self.data for word in case.test_text]
+        word_set = [word for case in self.data for word in case.test_text]
 
-        return vectorized_texts, label_set, test_words
+        return vectorized_texts, label_set, word_set
 
     def get_rnn_sets(self, word_indices, left_words=0, right_words=0):
         padded_texts = [['<pad>' for i in range(left_words)] + case.test_text + ['<pad>' for i in range(right_words)]
@@ -160,4 +160,6 @@ class pool:
                 sequence_set.append(word_sequence)
 
         label_set = [label for case in self.data for label in case.test_labels]
-        return sequence_set, label_set
+        word_set = [word for case in self.data for word in case.test_text]
+
+        return sequence_set, label_set, word_set
