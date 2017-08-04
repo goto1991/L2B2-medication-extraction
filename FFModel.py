@@ -136,8 +136,8 @@ class FF_Model:
 
         test_f1_score = sk.metrics.f1_score(test_truth, self.sess.run(self.graph['prediction'], feed_dict=test_feed), pos_label=0)
         if show_progress:
-            print('FInal Values: TrAcc: {:.3f}, ValAcc: {:.3f}, ValF1: {:.3f}'.format(train_accuracy[-1], validation_accuracy[-1], validation_f1_score[-1]))
-            print("Test F1-Score: {:.3f}\n".format(test_f1_score))
+            print('FInal Values: TrAcc: {:.4f}, ValAcc: {:.4f}, ValF1: {:.4f}'.format(train_accuracy[-1], validation_accuracy[-1], validation_f1_score[-1]))
+            print("Test F1-Score: {:.4f}\n".format(test_f1_score))
         return train_accuracy, validation_accuracy, validation_f1_score, test_f1_score
 
     def predict(self, data):

@@ -6,6 +6,8 @@ from collections import Counter
 import numpy as np
 from sklearn.manifold import TSNE
 import random
+import sklearn as sk
+import colorama as col
 
 from Set import pool
 from DS import DS
@@ -435,13 +437,6 @@ def embed_words(word_sets, model):
     return emb_sets
 
 
-def saturate_training_set_labels(dataset, model, labels, share):
-    while (np.array(dataset['train_labels']).sum(0) / len(dataset['train_labels']))[0] < share:
-        for med in labels:
-            dataset['train_set'].append(model[med])
-            dataset['train_labels'].append([1, 0])
-
-
 def saturate_training_set_training(feed, labels, share):
     targets = []
     for i in range(len(feed)):
@@ -466,10 +461,121 @@ def get_index_and_emb_layer(model):
     return word_indices, emb_layer
 
 
-def postprocess():
-    print('a')
+def token_perf(res, tru, tfpn=True, precision = True, recall=True,  f1=True):
+    perf_dict = {}
+    perf_dict['tp'] = len([1 for a in range(len(tru)) if (res[a] == 0) and (tru[a] == 0)])
+    perf_dict['tn'] = len([1 for a in range(len(tru)) if (res[a] == 1) and (tru[a] == 1)])
+    perf_dict['fp'] = len([1 for a in range(len(tru)) if (res[a] == 0) and (tru[a] == 1)])
+    perf_dict['fn'] = len([1 for a in range(len(tru)) if (res[a] == 1) and (tru[a] == 0)])
+    perf_dict['precision'] = perf_dict['tp'] / (perf_dict['tp'] + perf_dict['fp'])
+    perf_dict['recall'] = perf_dict['tp'] / (perf_dict['tp'] + perf_dict['fn'])
+    perf_dict['f1'] = sk.metrics.f1_score(tru, res, pos_label=0, average='binary')
+    if tfpn:
+        print('TP\tTN\tFP\tFN\n{}\t{}\t{}\t{}\n'.format(perf_dict['tp'], perf_dict['tn'], perf_dict['fp'], perf_dict['fn']))
+    if precision:
+        print('Precision: {:.4f}'.format(perf_dict['precision']))
+    if recall:
+        print('Recall: {:.4f}'.format(perf_dict['recall']))
+    if f1:
+        print('F1-Score: {:.4f}'.format(perf_dict['f1']))
+    return perf_dict
 
-def performance_analysis_FF(NN, test_set, test_labels, test_words):
-    res = NN.predict(test_set)
-    tru = np.argmax(test_labels)
+
+def phrase_perf(NN, testers, model, side_words=[0, 0], tfpn=True, precision=True, recall=True, f1=True,
+                case_info=False, show_phrases=False, remove_brackets=False):
+    perf_dict = {}
+    perf_dict['tp'] = 0
+    perf_dict['fp'] = 0
+    perf_dict['fn'] = 0
+    TP, FP, FN = 0, 0, 0
+
+    for i in range(testers.size):
+        current_ds = pool(data=[testers.data[i]])
+        if case_info:
+            current_ds.show_info()
+        current_ds.process_for_testing()
+        cur_set, cur_lab, cur_words = current_ds.get_ff_sets(model=model, left_words=side_words[0], right_words=side_words[1])
+
+        cur_res = NN.predict(cur_set)
+        cur_tru = np.argmax(cur_lab, 1)
+
+        if remove_brackets:
+            for j in range(len(cur_res)):
+                if (cur_words[j] == ')' or cur_words[j] == '('):
+                    cur_res[j] = 1
+                    cur_tru[j] = 1
+
+        res_words = set()
+        res_inside = False
+        res_med = ''
+        for k in range(len(cur_words)):
+            if not res_inside:
+                if cur_res[k] == 0:
+                    res_med = cur_words[k]
+                    res_inside = True
+            else:
+                if cur_res[k] == 0:
+                    res_med = res_med + ' ' + cur_words[k]
+                else:
+                    res_words.add(res_med)
+                    res_med = 0
+                    res_inside = False
+
+        tru_words = set()
+        for term in re.finditer(r'm="[^"]+"', current_ds.data[0].raw_labels):
+            term = term.group()[3:-1]
+            term = re.sub(r'\d+', '<num>', term)
+            term = re.sub(r'([A-Za-z]);', r'\1', term)
+            term = re.sub(r'([A-Za-z])\.', r'\1', term)
+            tru_words.add(term)
+
+        if show_phrases:
+            print('Result Medications:')
+            print(', '.join([col.Back.YELLOW + word.upper() + col.Back.RESET if word not in tru_words else word for word in
+                             sorted(list(res_words))]) + '\n')
+            print('True Medications:')
+            print(', '.join(
+                [col.Back.RED + word.upper() + col.Back.RESET if word not in res_words else word for word in sorted(list(tru_words))]) + '\n')
+
+        TP += len([1 for med in res_words if med in tru_words])
+        FP += len([1 for med in res_words if med not in tru_words])
+        FN += len([1 for med in tru_words if med not in res_words])
+
+        perf_dict['tp'] += len([1 for med in res_words if med in tru_words])
+        perf_dict['fp'] += len([1 for med in res_words if med not in tru_words])
+        perf_dict['fn'] += len([1 for med in tru_words if med not in res_words])
+
+    perf_dict['precision'] = perf_dict['tp'] / (perf_dict['tp'] + perf_dict['fp'])
+    perf_dict['recall'] = perf_dict['tp'] / (perf_dict['tp'] + perf_dict['fn'])
+    perf_dict['f1'] = (2 * perf_dict['tp']) / (2 * perf_dict['tp'] + perf_dict['fn'] + perf_dict['fp'])
+
+    if tfpn:
+        print('TP\tFP\tFN\n{}\t{}\t{}\n'.format(perf_dict['tp'], perf_dict['fp'], perf_dict['fn']))
+    if precision:
+        print('Precision: {:.4f}'.format(perf_dict['precision']))
+    if recall:
+        print('Recall: {:.4f}'.format(perf_dict['recall']))
+    if f1:
+        print('F1-Score: {:.4f}'.format(perf_dict['f1']))
+    return perf_dict
+
+
+def category_words(words, res, tru, res_label, tru_label):
+    print(', '.join([words[a] for a in range(len(words)) if res[a] == res_label and tru[a] == tru_label]))
+
+
+def colour_text(words, res, tru, segment=None):
+    out = []
+    if segment == None: segment = [0, len(words)]
+    for a in range(len(words[segment[0]:segment[1]])):
+        if res[segment[0] + a] == 0 and tru[segment[0] + a] == 0:
+            out.append(col.Back.GREEN + words[segment[0] + a].upper() + col.Back.RESET)
+        elif res[segment[0] + a] == 0 and tru[segment[0] + a] == 1:
+            out.append(col.Back.YELLOW + words[segment[0] + a].upper() + col.Back.RESET)
+        elif res[segment[0] + a] == 1 and tru[segment[0] + a] == 0:
+            out.append(col.Back.RED + words[segment[0] + a].upper() + col.Back.RESET)
+        else:
+            out.append(words[segment[0] + a])
+
+    print(' '.join(out))
 
