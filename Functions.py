@@ -437,15 +437,22 @@ def embed_words(word_sets, model):
     return emb_sets
 
 
-def saturate_training_set_training(feed, labels, share):
+def saturate_training_set(sets, share, seqlen=False):
     targets = []
-    for i in range(len(feed)):
-        if labels[i] == [1, 0]: targets.append(feed[i])
+    for i in range(len(sets['train_set'])):
+        if sets['train_labels'][i] == [1, 0]: targets.append(sets['train_set'][i])
 
-    while (np.array(labels).sum(0) / len(labels))[0] < share:
-        for med in targets:
-            feed.append(med)
-            labels.append([1, 0])
+    if seqlen:
+        lengths = []
+        for i in range(len(sets['train_set'])):
+            if sets['train_labels'][i] == [1, 0]: lengths.append(sets['train_lengths'][i])
+
+    while (np.array(sets['train_labels']).sum(0) / len(sets['train_labels']))[0] < share:
+        for i in range(len(targets)):
+            sets['train_set'].append(targets[i])
+            sets['train_labels'].append([1, 0])
+            if seqlen:
+                sets['train_lengths'].append(lengths[i])
 
 
 def get_index_and_emb_layer(model):
@@ -481,41 +488,33 @@ def token_perf(res, tru, tfpn=True, precision = True, recall=True,  f1=True):
     return perf_dict
 
 
-def phrase_perf(NN, testers, model, side_words=[0, 0], tfpn=True, precision=True, recall=True, f1=True,
-                case_info=False, show_phrases=False, remove_brackets=False):
-    perf_dict = {}
-    perf_dict['tp'] = 0
-    perf_dict['fp'] = 0
-    perf_dict['fn'] = 0
-    TP, FP, FN = 0, 0, 0
+def phrase_perf(NN, testers, model, side_words=[0, 0], tfpn=True, precision=True, recall=True, f1=True, case_info=False, show_phrases=False, rnn=False):
+    perf_dict = {'tp': 0, 'fp': 0, 'fn': 0}
 
     for i in range(testers.size):
         current_ds = pool(data=[testers.data[i]])
         if case_info:
             current_ds.show_info()
         current_ds.process_for_testing()
-        cur_set, cur_lab, cur_words = current_ds.get_ff_sets(model=model, left_words=side_words[0], right_words=side_words[1])
 
-        cur_res = NN.predict(cur_set)
-        cur_tru = np.argmax(cur_lab, 1)
-
-        if remove_brackets:
-            for j in range(len(cur_res)):
-                if (cur_words[j] == ')' or cur_words[j] == '('):
-                    cur_res[j] = 1
-                    cur_tru[j] = 1
+        if not rnn:
+            cur_set = current_ds.get_ff_sets(model=model, left_words=side_words[0], right_words=side_words[1])
+            cur_res = NN.predict(cur_set[0])
+        else:
+            cur_set = current_ds.get_rnn_sets(word_indices=model, left_words=side_words[0], right_words=side_words[1])
+            cur_res = NN.predict(cur_set[0], cur_set[3])
 
         res_words = set()
         res_inside = False
         res_med = ''
-        for k in range(len(cur_words)):
+        for k in range(len(cur_set[2])):
             if not res_inside:
                 if cur_res[k] == 0:
-                    res_med = cur_words[k]
+                    res_med = cur_set[2][k]
                     res_inside = True
             else:
                 if cur_res[k] == 0:
-                    res_med = res_med + ' ' + cur_words[k]
+                    res_med = res_med + ' ' + cur_set[2][k]
                 else:
                     res_words.add(res_med)
                     res_med = 0
@@ -536,10 +535,6 @@ def phrase_perf(NN, testers, model, side_words=[0, 0], tfpn=True, precision=True
             print('True Medications:')
             print(', '.join(
                 [col.Back.RED + word.upper() + col.Back.RESET if word not in res_words else word for word in sorted(list(tru_words))]) + '\n')
-
-        TP += len([1 for med in res_words if med in tru_words])
-        FP += len([1 for med in res_words if med not in tru_words])
-        FN += len([1 for med in tru_words if med not in res_words])
 
         perf_dict['tp'] += len([1 for med in res_words if med in tru_words])
         perf_dict['fp'] += len([1 for med in res_words if med not in tru_words])

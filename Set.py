@@ -161,5 +161,6 @@ class pool:
 
         label_set = [label for case in self.data for label in case.test_labels]
         word_set = [word for case in self.data for word in case.test_text]
+        lengths = [(left_words + right_words + 1) for i in range(len(word_set))]
 
-        return sequence_set, label_set, word_set
+        return sequence_set, label_set, word_set, lengths

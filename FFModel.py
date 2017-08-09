@@ -61,8 +61,6 @@ class FF_Model:
         cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y, labels=y_))
 
         # And classification accuracy with F1-Score
-        correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))
-        accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
         pred = tf.argmax(y, 1)
 
         # And the Adam optimiser
@@ -72,7 +70,6 @@ class FF_Model:
             'x': x,
             'y_': y_,
             'keep_prob': keep_prob,
-            'accuracy': accuracy,
             'prediction': pred,
             'ts': train_step
         }
@@ -84,6 +81,7 @@ class FF_Model:
 
         trainer = Iterator(sets['train_set'], sets['train_labels'])
 
+        train_truth = np.argmax(sets['train_labels'], 1)
         validation_truth = np.argmax(sets['validation_labels'], 1)
         test_truth = np.argmax(sets['test_labels'], 1)
 
@@ -97,8 +95,7 @@ class FF_Model:
                      self.graph['y_']: sets['test_labels'],
                      self.graph['keep_prob']: 1.0}
 
-        train_accuracy = []
-        validation_accuracy = []
+        train_f1_score = []
         validation_f1_score = []
 
         mark = (epochs * (len(sets['train_set']) // batch) * report_percentage) // 100
@@ -109,8 +106,8 @@ class FF_Model:
         while trainer.epochs < epochs:
             trd, trl = trainer.next_batch(batch)
             if N % mark == 0:
-                train_accuracy.append(self.sess.run(self.graph['accuracy'], feed_dict=train_feed))
-                validation_accuracy.append(self.sess.run(self.graph['accuracy'], feed_dict=validation_feed))
+                prediction = self.sess.run(self.graph['prediction'], feed_dict=train_feed)
+                train_f1_score.append(sk.metrics.f1_score(train_truth, prediction, pos_label=0))
                 prediction = self.sess.run(self.graph['prediction'], feed_dict=validation_feed)
                 validation_f1_score.append(sk.metrics.f1_score(validation_truth, prediction, pos_label=0))
                 check_point.append(N)
@@ -122,23 +119,23 @@ class FF_Model:
 
         if show_plot:
             np_check_point = np.array(check_point)
-            np_train_accuracy = np.array(train_accuracy)
-            np_test_accuracy = np.array(validation_accuracy)
-            np_validation_f1_score = np.array(validation_f1_score)
+            np_train_f1 = np.array(train_f1_score)
+            np_val_f1 = np.array(validation_f1_score)
 
-            plt.plot(np_check_point, np_train_accuracy, label="Train Accuracy")
-            plt.plot(np_check_point, np_test_accuracy, label="Validation Accuracy")
-            plt.plot(np_check_point, np_validation_f1_score, label="Validation F1-Score")
+            plt.plot(np_check_point, np_train_f1, label="Train")
+            plt.plot(np_check_point, np_val_f1, label="Validation")
+            plt.plot(np_check_point, np.ones(len(np_check_point))*0.35, label="Baseline")
             plt.xlabel("Batches")
-            plt.ylabel("Performance Values")
+            plt.ylabel("F1-Score")
             plt.legend()
             plt.show()
 
-        test_f1_score = sk.metrics.f1_score(test_truth, self.sess.run(self.graph['prediction'], feed_dict=test_feed), pos_label=0)
+        test_f1_score = sk.metrics.f1_score(test_truth, self.sess.run(self.graph['prediction'], feed_dict=test_feed),
+                                            pos_label=0)
         if show_progress:
-            print('FInal Values: TrAcc: {:.4f}, ValAcc: {:.4f}, ValF1: {:.4f}'.format(train_accuracy[-1], validation_accuracy[-1], validation_f1_score[-1]))
+            print('FInal Values: Tr-F1: {:.4f}, Val-F1: {:.4f}'.format(train_f1_score[-1], validation_f1_score[-1]))
             print("Test F1-Score: {:.4f}\n".format(test_f1_score))
-        return train_accuracy, validation_accuracy, validation_f1_score, test_f1_score
+        return train_f1_score, validation_f1_score, test_f1_score
 
     def predict(self, data):
         dummy = [[1, 1] for i in range(len(data))]

@@ -24,3 +24,30 @@ class Iterator():
         res_labels = self.labels[self.cursor:self.cursor+n]
         self.cursor += n
         return res_texts, res_labels
+
+
+class RNNIterator():
+    def __init__(self, texts, labels, lengths):
+        self.texts = texts
+        self.lengths = lengths
+        self.labels = labels
+        self.size = len(self.texts)
+        self.epochs = 0
+        self.shuffle()
+
+    def shuffle(self):
+        temp = list(zip(self.texts, self.lengths, self.labels))
+        random.shuffle(temp)
+        self.texts, self.lengths, self.labels = zip(*temp)
+        self.cursor = 0
+
+    def next_batch(self, n):
+        if self.cursor+n > self.size:
+            self.epochs += 1
+            self.shuffle()
+        res_texts = self.texts[self.cursor:self.cursor+n]
+        res_lengths = self.lengths[self.cursor:self.cursor+n]
+        res_labels = self.labels[self.cursor:self.cursor+n]
+        self.cursor += n
+        return res_texts, res_labels, res_lengths
+
