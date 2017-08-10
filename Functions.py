@@ -488,14 +488,15 @@ def token_perf(res, tru, tfpn=True, precision = True, recall=True,  f1=True):
     return perf_dict
 
 
-def phrase_perf(NN, testers, model, side_words=[0, 0], tfpn=True, precision=True, recall=True, f1=True, case_info=False, show_phrases=False, rnn=False):
+def phrase_perf(target, NN, testers, model, side_words=[0, 0], tfpn=True, precision=True, recall=True, f1=True,
+                case_info=False, show_phrases=False, rnn=False):
     perf_dict = {'tp': 0, 'fp': 0, 'fn': 0}
 
     for i in range(testers.size):
         current_ds = pool(data=[testers.data[i]])
         if case_info:
             current_ds.show_info()
-        current_ds.process_for_testing()
+        current_ds.process_for_testing(target)
 
         if not rnn:
             cur_set = current_ds.get_ff_sets(model=model, left_words=side_words[0], right_words=side_words[1])
@@ -504,7 +505,7 @@ def phrase_perf(NN, testers, model, side_words=[0, 0], tfpn=True, precision=True
             cur_set = current_ds.get_rnn_sets(word_indices=model, left_words=side_words[0], right_words=side_words[1])
             cur_res = NN.predict(cur_set[0], cur_set[3])
 
-        res_words = set()
+        res_words = []
         res_inside = False
         res_med = ''
         for k in range(len(cur_set[2])):
@@ -516,29 +517,44 @@ def phrase_perf(NN, testers, model, side_words=[0, 0], tfpn=True, precision=True
                 if cur_res[k] == 0:
                     res_med = res_med + ' ' + cur_set[2][k]
                 else:
-                    res_words.add(res_med)
+                    res_words.append(res_med)
                     res_med = 0
                     res_inside = False
 
-        tru_words = set()
-        for term in re.finditer(r'm="[^"]+"', current_ds.data[0].raw_labels):
-            term = term.group()[3:-1]
-            term = re.sub(r'\d+', '<num>', term)
-            term = re.sub(r'([A-Za-z]);', r'\1', term)
-            term = re.sub(r'([A-Za-z])\.', r'\1', term)
-            tru_words.add(term)
+        tru_terms = []
+        tru_words = []
+        for term in re.finditer(re.escape(target) + r'="[^|]+\|', current_ds.data[0].raw_labels):
+            term = term.group()
+            if term not in tru_terms:
+                tru_terms.append(term)
+                term = re.match(re.escape(target) + r'="[^"]+"', term).group()[len(target) + 2:-1]
+                term = re.sub(r'\d+', '<num>', term)
+                term = re.sub(r'([A-Za-z]);', r'\1', term)
+                term = re.sub(r'([A-Za-z])\.', r'\1', term)
+                if not term == 'nm': tru_words.append(term)
+
+        res_count = Counter(res_words)
+        tru_count = Counter(tru_words)
+        dif_count = Counter(res_words)
+        dif_count.subtract(Counter(tru_words))
 
         if show_phrases:
-            print('Result Medications:')
-            print(', '.join([col.Back.YELLOW + word.upper() + col.Back.RESET if word not in tru_words else word for word in
-                             sorted(list(res_words))]) + '\n')
-            print('True Medications:')
-            print(', '.join(
-                [col.Back.RED + word.upper() + col.Back.RESET if word not in res_words else word for word in sorted(list(tru_words))]) + '\n')
+            printout = []
+            for word in sorted(dif_count.keys()):
+                if dif_count[word] == 0:
+                    printout.append(' '.join([word, str(res_count[word]), str(tru_count[word])]))
+                elif dif_count[word] > 0:
+                    printout.append(
+                        col.Back.YELLOW + ' '.join([word, str(res_count[word]), str(tru_count[word])]) + col.Back.RESET)
+                else:
+                    printout.append(
+                        col.Back.RED + ' '.join([word, str(res_count[word]), str(tru_count[word])]) + col.Back.RESET)
 
-        perf_dict['tp'] += len([1 for med in res_words if med in tru_words])
-        perf_dict['fp'] += len([1 for med in res_words if med not in tru_words])
-        perf_dict['fn'] += len([1 for med in tru_words if med not in res_words])
+            print('\n'.join(printout) + '\n')
+
+        perf_dict['tp'] += sum([res_count[word] - max(0, dif_count[word]) for word in dif_count.keys()])
+        perf_dict['fp'] += sum([max(0, dif_count[word]) for word in dif_count.keys()])
+        perf_dict['fn'] += sum([-min(0, dif_count[word]) for word in dif_count.keys()])
 
     perf_dict['precision'] = perf_dict['tp'] / (perf_dict['tp'] + perf_dict['fp'])
     perf_dict['recall'] = perf_dict['tp'] / (perf_dict['tp'] + perf_dict['fn'])

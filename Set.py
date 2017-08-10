@@ -127,9 +127,9 @@ class pool:
                 sentences.append(sent)
         return sentences
 
-    def process_for_testing(self):
+    def process_for_testing(self, target):
         for i in range(self.size):
-            self.data[i].process_for_testing()
+            self.data[i].process_for_testing(target)
 
     def get_ff_sets(self, model, left_words=0, right_words=0):
         padded_texts = [['<pad>' for i in range(left_words)] + case.test_text + ['<pad>' for i in range(right_words)]

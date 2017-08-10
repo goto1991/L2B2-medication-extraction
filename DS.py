@@ -30,7 +30,7 @@ class DS:
             temp[i] = re.sub(r'([A-Za-z])\.', r'\1', temp[i])
             self.emb_text.append(temp[i].split())
 
-    def process_for_testing(self):
+    def process_for_testing(self, target):
         text = self.raw_text
         text = text.split('\n')
         for i in range(len(text)):
@@ -47,7 +47,7 @@ class DS:
 
         indices = []
         second = False
-        for term in re.finditer(r'm="[^|]+\|', self.raw_labels):
+        for term in re.finditer(re.escape(target) + r'="[^|]+\|', self.raw_labels):
             term = term.group()
             index = []
             for window in re.finditer(r'\d+:\d+', term):
