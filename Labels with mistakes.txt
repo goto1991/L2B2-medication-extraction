@@ -1,6 +1,12 @@
 974209 med
 731937 med 
 650471 med
+
 497131 reason
 5091 reason
 1205 reason
+
+108014 reason
+108881 reason
+435683 reason
+916948 reason

@@ -131,6 +131,10 @@ class pool:
         for i in range(self.size):
             self.data[i].process_for_testing(target)
 
+    def process_for_s2s_testing(self):
+        for i in range(self.size):
+            self.data[i].process_for_s2s_testing()
+
     def get_ff_sets(self, model, left_words=0, right_words=0):
         padded_texts = [['<pad>' for i in range(left_words)] + case.test_text + ['<pad>' for i in range(right_words)]
                         for case in self.data]
@@ -164,3 +168,17 @@ class pool:
         lengths = [(left_words + right_words + 1) for i in range(len(word_set))]
 
         return sequence_set, label_set, word_set, lengths
+
+    def get_s2s_sets(self, word_indices):
+        sequence_set = []
+
+        for case in self.data:
+            for sequence in case.test_text:
+                temp = [word_indices[word] if word in word_indices.keys() else 1 for word in sequence]
+                sequence_set.append(temp)
+
+        label_set = [label for case in self.data for label in case.test_labels]
+        word_set = [word for case in self.data for word in case.test_text]
+
+        return sequence_set, label_set, word_set
+

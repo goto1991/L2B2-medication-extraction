@@ -7,12 +7,13 @@ import sklearn as sk
 from Iterator import RNNIterator
 
 
-class RNN_Model:
+class S2S_Model:
 
-    def __init__(self, vocab_size, state_size, num_classes, dropout=1.0, learn_rate=0.01, emb_layer=False):
-        self.vocab_size = vocab_size
+    def __init__(self, enc_sym, dec_sym, emb_size, state_size, num_classes, dropout=1.0, learn_rate=0.01, emb_layer=False):
+        self.enc_sym = enc_sym
+        self.dec_sym = dec_sym
+        self.emb_size = emb_size
         self.state_size = state_size
-        self.num_classes = num_classes
         self.dropout = dropout
         self.learn_rate = learn_rate
         self.emb_layer = emb_layer
