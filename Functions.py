@@ -169,6 +169,7 @@ def first_time_load():
 def label_words(Dataset, model):
     doc = open("stopwords.txt", "r")
     stopwords = set(doc.read().split('\n'))
+    doc.close()
     stopwords.update({'nm', 'ngl'})
 
     medications = set()
@@ -188,6 +189,7 @@ def label_words(Dataset, model):
             term = re.sub(r'\.\.\.', ' ', term)
             term = re.sub(r'([A-Za-z])\.', r'\1', term)
             term = re.sub(r'([A-Za-z]);', r'\1', term)
+            term = re.sub(r'([A-Za-z]):', r'\1', term)
             term = re.sub(r'[()]', ' ', term)
             [medications.add(word) for word in term.split() if (word not in stopwords) and word in vocab]
         for term in re.finditer(r'do="[^"]+"', case.raw_labels):
@@ -196,6 +198,7 @@ def label_words(Dataset, model):
             term = re.sub(r'\.\.\.', ' ', term)
             term = re.sub(r'([A-Za-z])\.', r'\1', term)
             term = re.sub(r'([A-Za-z]);', r'\1', term)
+            term = re.sub(r'([A-Za-z]):', r'\1', term)
             term = re.sub(r'[()]', ' ', term)
             [dosages.add(word) for word in term.split() if (word not in stopwords) and (word in vocab)]
         for term in re.finditer(r'mo="[^"]+"', case.raw_labels):
@@ -204,6 +207,7 @@ def label_words(Dataset, model):
             term = re.sub(r'\.\.\.', ' ', term)
             term = re.sub(r'([A-Za-z])\.', r'\1', term)
             term = re.sub(r'([A-Za-z]);', r'\1', term)
+            term = re.sub(r'([A-Za-z]):', r'\1', term)
             term = re.sub(r'[()]', ' ', term)
             [modes.add(word) for word in term.split() if (word not in stopwords) and (word in vocab)]
         for term in re.finditer(r'f="[^"]+"', case.raw_labels):
@@ -212,6 +216,7 @@ def label_words(Dataset, model):
             term = re.sub(r'\.\.\.', ' ', term)
             term = re.sub(r'([A-Za-z])\.', r'\1', term)
             term = re.sub(r'([A-Za-z]);', r'\1', term)
+            term = re.sub(r'([A-Za-z]):', r'\1', term)
             term = re.sub(r'[()]', ' ', term)
             [frequencies.add(word) for word in term.split() if (word not in stopwords) and (word in vocab)]
         for term in re.finditer(r'du="[^"]+"', case.raw_labels):
@@ -220,6 +225,7 @@ def label_words(Dataset, model):
             term = re.sub(r'\.\.\.', ' ', term)
             term = re.sub(r'([A-Za-z])\.', r'\1', term)
             term = re.sub(r'([A-Za-z]);', r'\1', term)
+            term = re.sub(r'([A-Za-z]):', r'\1', term)
             term = re.sub(r'[()]', ' ', term)
             [durations.add(word) for word in term.split() if (word not in stopwords) and (word in vocab)]
         for term in re.finditer(r'r="[^"]+"', case.raw_labels):
@@ -228,6 +234,7 @@ def label_words(Dataset, model):
             term = re.sub(r'\.\.\.', ' ', term)
             term = re.sub(r'([A-Za-z])\.', r'\1', term)
             term = re.sub(r'([A-Za-z]);', r'\1', term)
+            term = re.sub(r'([A-Za-z]):', r'\1', term)
             term = re.sub(r'[()]', ' ', term)
             [reasons.add(word) for word in term.split() if (word not in stopwords) and (word in vocab)]
 

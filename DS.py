@@ -23,8 +23,8 @@ class DS:
         temp = re.sub(r'\n', ' ', temp)
         temp = re.sub(r'Dr\.', 'Dr', temp)
         temp = re.sub(r'Mr\.', 'Mr', temp)
-        temp = re.sub(r'\. ([A-Z])', r'. A\1', temp)
         temp = re.sub(r'([A-Za-z]);', r'\1', temp)
+        temp = re.sub(r'\. ([A-Z])', r'. A\1', temp)
         temp = re.split(r'\. [A-Z]', temp)
         for i in range(len(temp)):
             temp[i] = temp[i].lower()
@@ -40,8 +40,8 @@ class DS:
             text[i] = re.sub(r'([A-Za-z]):', r'\1', text[i])  # Removing colons from letter words
             text[i] = re.sub(r'Dr\.', 'Dr', text[i])
             text[i] = re.sub(r'Mr\.', 'Mr', text[i])
-            text[i] = re.sub(r'([A-Za-z])\.', r'\1', text[i])
             text[i] = re.sub(r'([A-Za-z]);', r'\1', text[i])
+            text[i] = re.sub(r'([A-Za-z])\.', r'\1', text[i])
             text[i] = text[i].lower()
             text[i] = text[i].split()
         self.token_text = text

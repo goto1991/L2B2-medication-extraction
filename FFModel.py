@@ -23,6 +23,7 @@ class FF_Model:
         self.sess = None
 
     def build_graph(self):
+        warnings.simplefilter("ignore")
         def weight_variable(shape):
             initial = tf.truncated_normal(shape, stddev=0.05)
             return tf.Variable(initial)
@@ -73,6 +74,7 @@ class FF_Model:
             'prediction': pred,
             'ts': train_step
         }
+        warnings.simplefilter("default")
 
     def train(self, sets, epochs=10, batch=50, report_percentage=1, show_progress=False, show_plot=False):
         # Start a tf session and run the optimisation algorithm
