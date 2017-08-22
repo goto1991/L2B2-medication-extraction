@@ -463,10 +463,10 @@ def saturate_training_set(sets, share, seqlen=False):
 
 
 def get_index_and_emb_layer(model):
-    word_indices = {'<pad>': 0, '<unk>': 1}
-    emb_layer = np.empty([len(model.wv.vocab) + 2, model.vector_size])
-    emb_layer[:2] = np.zeros(100)
-    i = 2
+    word_indices = {'<pad>': 0, '<unk>': 1, '<start>': 2, '<go>': 3, '<eos>': 4}
+    emb_layer = np.empty([len(model.wv.vocab) + 5, model.vector_size])
+    emb_layer[:5] = np.zeros(model.vector_size)
+    i = 5
 
     for word in model.wv.vocab.keys():
         word_indices[word] = i
@@ -495,8 +495,7 @@ def token_perf(res, tru, tfpn=True, precision = True, recall=True,  f1=True):
     return perf_dict
 
 
-def phrase_perf(target, NN, testers, model, side_words=[0, 0], tfpn=True, precision=True, recall=True, f1=True,
-                case_info=False, show_phrases=False, rnn=False):
+def phrase_perf(target, NN, testers, model, side_words=[0, 0], tfpn=True, precision=True, recall=True, f1=True, case_info=False, show_phrases=False, rnn=False):
     perf_dict = {'tp': 0, 'fp': 0, 'fn': 0}
 
     for i in range(testers.size):
@@ -512,56 +511,64 @@ def phrase_perf(target, NN, testers, model, side_words=[0, 0], tfpn=True, precis
             cur_set = current_ds.get_rnn_sets(word_indices=model, left_words=side_words[0], right_words=side_words[1])
             cur_res = NN.predict(cur_set[0], cur_set[3])
 
-        res_words = []
-        res_inside = False
-        res_med = ''
-        for k in range(len(cur_set[2])):
-            if not res_inside:
-                if cur_res[k] == 0:
-                    res_med = cur_set[2][k]
-                    res_inside = True
-            else:
-                if cur_res[k] == 0:
-                    res_med = res_med + ' ' + cur_set[2][k]
-                else:
-                    res_words.append(res_med)
-                    res_med = 0
-                    res_inside = False
+        rowed_res = []
+        cursor = 0
+        for row in current_ds.data[0].token_text:
+            rowed_res.append(cur_res[cursor:cursor + len(row)])
+            cursor += len(row)
 
-        tru_terms = []
-        tru_words = []
+        res_offsets = []
+        res_phrases = []
+        res_inside = False
+        for i in range(len(current_ds.data[0].token_text)):
+            for j in range(len(current_ds.data[0].token_text[i])):
+                if not res_inside:
+                    if rowed_res[i][j] == 0:
+                        cur_phrase = current_ds.data[0].token_text[i][j]
+                        cur_offset = [[i + 1, j], [i + 1, j]]
+                        res_inside = True
+                else:
+                    if rowed_res[i][j] == 0:
+                        cur_phrase = cur_phrase + ' ' + current_ds.data[0].token_text[i][j]
+                        cur_offset[1] = [i + 1, j]
+                    else:
+                        res_phrases.append(cur_phrase)
+                        res_offsets.append(cur_offset)
+                        res_inside = False
+
+        tru_fields = []
+        tru_phrases = []
+        tru_offsets = []
         for term in re.finditer(re.escape(target) + r'="[^|]+\|', current_ds.data[0].raw_labels):
             term = term.group()
-            if term not in tru_terms:
-                tru_terms.append(term)
-                term = re.match(re.escape(target) + r'="[^"]+"', term).group()[len(target) + 2:-1]
-                term = re.sub(r'\d+', '<num>', term)
-                term = re.sub(r'([A-Za-z]);', r'\1', term)
-                term = re.sub(r'([A-Za-z])\.', r'\1', term)
-                if not term == 'nm': tru_words.append(term)
-
-        res_count = Counter(res_words)
-        tru_count = Counter(tru_words)
-        dif_count = Counter(res_words)
-        dif_count.subtract(Counter(tru_words))
+            if not re.search(r'="nm"', term):
+                if term not in tru_fields:
+                    tru_fields.append(term)
+                    tru_phrases.append(re.match(re.escape(target) + r'="[^"]+"', term).group()[len(target) + 2:-1])
+                    cur_offset = []
+                    for window in re.finditer(r'\d+:\d+', term):
+                        cur_offset.append(list(map(int, window.group().split(':'))))
+                    tru_offsets.append(cur_offset)
 
         if show_phrases:
-            printout = []
-            for word in sorted(dif_count.keys()):
-                if dif_count[word] == 0:
-                    printout.append(' '.join([word, str(res_count[word]), str(tru_count[word])]))
-                elif dif_count[word] > 0:
-                    printout.append(
-                        col.Back.YELLOW + ' '.join([word, str(res_count[word]), str(tru_count[word])]) + col.Back.RESET)
+            for i in range(len(res_phrases)):
+                if res_offsets[i] in tru_offsets:
+                    j = tru_offsets.index(res_offsets[i])
+                    perf_dict['tp'] += 1
+                    print(res_phrases[i], *res_offsets[i], tru_phrases[j], *tru_offsets[j])
                 else:
-                    printout.append(
-                        col.Back.RED + ' '.join([word, str(res_count[word]), str(tru_count[word])]) + col.Back.RESET)
+                    perf_dict['fp'] += 1
+                    print(col.Back.YELLOW, end='')
+                    print(res_phrases[i], *res_offsets[i])
+                    print(col.Back.RESET, end='')
 
-            print('\n'.join(printout) + '\n')
-
-        perf_dict['tp'] += sum([res_count[word] - max(0, dif_count[word]) for word in dif_count.keys()])
-        perf_dict['fp'] += sum([max(0, dif_count[word]) for word in dif_count.keys()])
-        perf_dict['fn'] += sum([-min(0, dif_count[word]) for word in dif_count.keys()])
+            for i in range(len(tru_phrases)):
+                if tru_offsets[i] not in res_offsets:
+                    perf_dict['fn'] += 1
+                    print(col.Back.RED, end='')
+                    print(tru_phrases[i], *tru_offsets[i])
+                    print(col.Back.RESET, end='')
+            print('\n')
 
     perf_dict['precision'] = perf_dict['tp'] / (perf_dict['tp'] + perf_dict['fp'])
     perf_dict['recall'] = perf_dict['tp'] / (perf_dict['tp'] + perf_dict['fn'])

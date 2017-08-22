@@ -169,16 +169,46 @@ class pool:
 
         return sequence_set, label_set, word_set, lengths
 
-    def get_s2s_sets(self, word_indices):
-        sequence_set = []
+    def get_s2s_sets(self, word_indices, max_enc_inp, max_dec_inp):
+        enc_inps = []
+        enc_labels = []
+        enc_inp_lens = []
+        dec_inps = []
+        dec_inp_lens = []
+        dec_outs = []
+        target_weights = []
+        dec_out_words = []
 
         for case in self.data:
-            for sequence in case.test_text:
-                temp = [word_indices[word] if word in word_indices.keys() else 1 for word in sequence]
-                sequence_set.append(temp)
+            for instance in case.enc_inputs:
+                temp = [word_indices[word] if word in word_indices.keys() else 1 for word in instance]
+                enc_inp_lens.append(len(temp))
+                while len(temp) < max_enc_inp:
+                    temp.append(word_indices['<pad>'])
+                enc_inps.append(temp)
+            for instance in case.enc_labels:
+                temp = instance
+                while len(temp) < max_enc_inp:
+                    temp.append([0])
+                enc_labels.append(temp)
+            for instance in case.dec_inputs:
+                temp = [word_indices[word] if word in word_indices.keys() else 1 for word in instance]
+                dec_inp_lens.append(len(temp))
+                while len(temp) < max_dec_inp:
+                    temp.append(word_indices['<pad>'])
+                dec_inps.append(temp)
+            for instance in case.dec_outputs:
+                temp = [word_indices[word] if word in word_indices.keys() else 1 for word in instance]
+                cur_tar_weights = []
+                for i in range(max_dec_inp):
+                    if i < len(instance):
+                        cur_tar_weights.append(1)
+                    else:
+                        cur_tar_weights.append(0)
+                        temp.append(word_indices['<pad>'])
+                dec_outs.append(temp)
+                target_weights.append(cur_tar_weights)
+                dec_out_words.append(instance)
 
-        label_set = [label for case in self.data for label in case.test_labels]
-        word_set = [word for case in self.data for word in case.test_text]
-
-        return sequence_set, label_set, word_set
+        return enc_inps, enc_labels, enc_inp_lens, dec_inps, dec_inp_lens, dec_outs, target_weights, dec_out_words
 

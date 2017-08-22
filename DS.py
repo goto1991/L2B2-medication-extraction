@@ -14,6 +14,10 @@ class DS:
         self.test_text = []
         self.raw_labels = []
         self.test_labels = []
+        self.enc_labels = []
+        self.enc_inputs = []
+        self.dec_inputs = []
+        self.dec_outputs = []
 
     def process_for_embedding(self):
         self.emb_text = []
@@ -105,6 +109,8 @@ class DS:
             text[i] = text[i].split()
         self.token_text = text
 
+        label_text = [[0 for word in row] for row in self.token_text]
+
         tar_ind = [[], [], [], [], [], []]
         entry_num = 0
         for label_line in self.raw_labels.split('\n'):
@@ -132,18 +138,42 @@ class DS:
                     if index == -1:
                         tar_ind[i].append(windows)
                     else:
-                        for num in windows:
-                            tar_ind[i][index].append(num)
+                        for offset in windows:
+                            tar_ind[i][index].append(offset)
 
-        all_texts = []
-        all_labels = []
+        label_text = [[[0] for word in row] for row in self.token_text]
+        for i in range(len(tar_ind)):
+            for entry in range(entry_num):
+                index = 0
+                while index < len(tar_ind[i][entry]):
+                    start_row = tar_ind[i][entry][index][0] - 1
+                    start_word = tar_ind[i][entry][index][1]
+                    end_row = tar_ind[i][entry][index + 1][0] - 1
+                    end_word = tar_ind[i][entry][index + 1][1]
+                    row = start_row
+                    word = start_word
+                    while (row <= end_row) and ((row < end_row) or (word <= end_word)):
+                        row_len = len(label_text[row])
+                        label_text[row][word] = [i+1]
+                        if word < row_len - 1:
+                            word += 1
+                        else:
+                            word = 0
+                            row += 1
+                    index += 2
+
+        all_enc_labels = []
+        all_enc_inputs = []
+        all_dec_inputs = []
+        all_dec_outputs = []
 
         for entry in range(entry_num):
-            current_text = []
-            current_labels = [6]
+            current_enc_input = []
+            current_dec_input = ['<go>']
             min_row = float('inf')
             max_row = 0
             index = 0
+            med_indices = []
             while index < len(tar_ind[0][entry]):
                 start_row = tar_ind[0][entry][index][0] - 1
                 start_word = tar_ind[0][entry][index][1]
@@ -156,26 +186,28 @@ class DS:
                 # print(start_row, start_word, end_row, end_word)
                 while (row <= end_row) and ((row < end_row) or (word <= end_word)):
                     row_len = len(self.token_text[row])
-                    current_text.append(self.token_text[row][word])
-                    current_labels.append(0)
+                    current_enc_input.append(self.token_text[row][word])
+                    med_indices.append([row, word])
                     if word < row_len - 1:
                         word += 1
                     else:
                         word = 0
                         row += 1
-                current_text.append('<pad>')
-                current_labels.append(0)
                 index += 2
+            current_enc_input.append('<start>')
 
             start = max(0, min_row - 2)
             end = min(row_num, max_row + 3)
-            dummy_labels = []
+            dummy_dec_input = []
             for i in range(start, end):
-                dummy = []
+                dummy_row = []
                 for word in self.token_text[i]:
-                    current_text.append(word)
-                    dummy.append(0)
-                dummy_labels.append(dummy)
+                    current_enc_input.append(word)
+                    dummy_row.append(0)
+                dummy_dec_input.append(dummy_row)
+
+            for index in med_indices:
+                dummy_dec_input[index[0]-start][index[1]] = 6
 
             for i in range(1, 6):
                 index = 0
@@ -185,15 +217,18 @@ class DS:
                         start_word = tar_ind[i][entry][index][1]
                         end_row = tar_ind[i][entry][index + 1][0] - 1 - start
                         end_word = tar_ind[i][entry][index + 1][1]
+                        if end_row > len(dummy_dec_input) - 1:
+                            end_row = len(dummy_dec_input) - 1
+                            end_word = len(dummy_dec_input[end_row]) - 1
+                        if start_row < 0:
+                            start_row = 0
+                            start_word = 0
                         row = start_row
                         word = start_word
-                        if end_row > len(dummy_labels) - 1:
-                            end_row = len(dummy_labels) - 1
-                            end_word = len(dummy_labels[end_row]) - 1
                         # print(i, start_row, start_word, end_row, end_word)
                         while (row <= end_row) and ((row < end_row) or (word <= end_word)):
-                            row_len = len(dummy_labels[row])
-                            dummy_labels[row][word] = i
+                            row_len = len(dummy_dec_input[row])
+                            dummy_dec_input[row][word] = i
                             if word < row_len - 1:
                                 word += 1
                             else:
@@ -201,15 +236,38 @@ class DS:
                                 row += 1
                     index += 2
 
-            for row in dummy_labels:
+            for row in dummy_dec_input:
                 for word in row:
-                    current_labels.append(word)
+                    current_dec_input.append(word)
 
-            all_texts.append(current_text)
-            all_labels.append(current_labels)
+            current_dec_output = current_dec_input[1:]
+            current_dec_output.append(8)
 
-        self.test_text = all_texts
-        self.test_labels = all_labels
+            start_tok = current_enc_input.index('<start>')
+            new_dec_input=['<go>']
+            for i in range(1, len(current_dec_input)):
+                if current_dec_input[i] is not 0:
+                    new_dec_input.append(current_enc_input[start_tok + i])
+            new_dec_output = new_dec_input[1:]
+            new_dec_output.append('<eos>')
+
+            #start = max(0, min_row - 2)
+            #end = min(row_num, max_row + 3)
+            window_labels = [[1] for i in range(start_tok)]
+            window_labels.append([0])
+            for i in range(start, end):
+                for label in label_text[i]:
+                    window_labels.append(label)
+
+            all_enc_labels.append(window_labels)
+            all_enc_inputs.append(current_enc_input)
+            all_dec_inputs.append(new_dec_input)
+            all_dec_outputs.append(new_dec_output)
+
+        self.enc_labels = all_enc_labels
+        self.enc_inputs = all_enc_inputs
+        self.dec_inputs = all_dec_inputs
+        self.dec_outputs = all_dec_outputs
 
     def show_info(self):
         print('Name: ', self.name)
