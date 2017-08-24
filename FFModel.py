@@ -76,14 +76,14 @@ class FF_Model:
         }
         warnings.simplefilter("default")
 
-    def train(self, sets, epochs=10, batch=50, report_percentage=False, train_val_test=False, show_progress=False, show_plot=False):
+    def train(self, sets, epochs=10, batch=50, test_res=True, train_val_curve=False, show_progress=False, report_percentage=False, show_plot=False):
         # Start a tf session and run the optimisation algorithm
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
 
         trainer = Iterator(sets['train_set'], sets['train_labels'])
 
-        if train_val_test:
+        if train_val_curve:
             train_truth = np.argmax(sets['train_labels'], 1)
             validation_truth = np.argmax(sets['validation_labels'], 1)
             test_truth = np.argmax(sets['test_labels'], 1)
@@ -94,6 +94,8 @@ class FF_Model:
             validation_feed = {self.graph['x']: sets['validation_set'],
                                self.graph['y_']: sets['validation_labels'],
                                self.graph['keep_prob']: 1.0}
+
+        if test_res:
             test_feed = {self.graph['x']: sets['test_set'],
                          self.graph['y_']: sets['test_labels'],
                          self.graph['keep_prob']: 1.0}
@@ -110,7 +112,7 @@ class FF_Model:
         warnings.simplefilter("ignore")
         while trainer.epochs < epochs:
             trd, trl = trainer.next_batch(batch)
-            if train_val_test:
+            if train_val_curve:
                 if N % mark == 0:
                     prediction = self.sess.run(self.graph['prediction'], feed_dict=train_feed)
                     train_f1_score.append(sk.metrics.f1_score(train_truth, prediction, pos_label=0))
@@ -136,7 +138,7 @@ class FF_Model:
             plt.legend()
             plt.show()
 
-        if train_val_test:
+        if test_res:
             test_f1_score = sk.metrics.f1_score(test_truth, self.sess.run(self.graph['prediction'], feed_dict=test_feed),
                                                 pos_label=0)
         else: test_f1_score = []
