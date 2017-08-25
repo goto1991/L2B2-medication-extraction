@@ -10,10 +10,12 @@ from Iterator import Iterator
 
 
 class FF_Model:
-    def __init__(self, input_size=100, output_size=2, layers=[50], dropout=1.0, learn_rate=0.01):
+
+    def __init__(self, input_size=100, output_size=2, layers=[50], activ='sigmoid', dropout=1.0, learn_rate=0.01):
         self.input_size = input_size
         self.output_size = output_size
         self.layers = layers
+        self.activ = activ
         self.dropout = dropout
         self.learn_rate = learn_rate
         self.weights = []
@@ -42,12 +44,22 @@ class FF_Model:
         # Define the first layer here
         self.weights = [weight_variable([self.input_size, self.layers[0]])]
         self.biases = [bias_variable([self.layers[0]])]
-        self.hiddens = [tf.nn.sigmoid(tf.matmul(x, self.weights[0]) + self.biases[0])]
+        if self.activ == 'sigmoid':
+            self.hiddens = [tf.nn.sigmoid(tf.matmul(x, self.weights[0]) + self.biases[0])]
+        elif self.activ == 'relu':
+            self.hiddens = [tf.nn.relu(tf.matmul(x, self.weights[0]) + self.biases[0])]
+        else:
+            self.hiddens = [tf.nn.tanh(tf.matmul(x, self.weights[0]) + self.biases[0])]
 
         for i in range(1, len(self.layers)):
             self.weights.append(weight_variable([self.layers[i - 1], self.layers[i]]))
             self.biases.append(bias_variable([self.layers[i]]))
-            self.hiddens.append(tf.nn.sigmoid(tf.matmul(self.hiddens[i - 1], self.weights[i]) + self.biases[i]))
+            if self.activ == 'sigmoid':
+                self.hiddens.append(tf.nn.sigmoid(tf.matmul(self.hiddens[i - 1], self.weights[i]) + self.biases[i]))
+            elif self.activ == 'relu':
+                self.hiddens.append(tf.nn.relu(tf.matmul(self.hiddens[i - 1], self.weights[i]) + self.biases[i]))
+            else:
+                self.hiddens.append(tf.nn.tanh(tf.matmul(self.hiddens[i - 1], self.weights[i]) + self.biases[i]))
 
         # Use dropout for this layer
         keep_prob = tf.placeholder(tf.float32)
@@ -86,7 +98,6 @@ class FF_Model:
         if train_val_curve:
             train_truth = np.argmax(sets['train_labels'], 1)
             validation_truth = np.argmax(sets['validation_labels'], 1)
-            test_truth = np.argmax(sets['test_labels'], 1)
 
             train_feed = {self.graph['x']: sets['train_set'],
                           self.graph['y_']: sets['train_labels'],
@@ -96,6 +107,7 @@ class FF_Model:
                                self.graph['keep_prob']: 1.0}
 
         if test_res:
+            test_truth = np.argmax(sets['test_labels'], 1)
             test_feed = {self.graph['x']: sets['test_set'],
                          self.graph['y_']: sets['test_labels'],
                          self.graph['keep_prob']: 1.0}
