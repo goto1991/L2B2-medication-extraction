@@ -11,13 +11,14 @@ from Iterator import Iterator
 
 class FF_Model:
 
-    def __init__(self, input_size=100, output_size=2, layers=[50], activ='sigmoid', dropout=1.0, learn_rate=0.01):
+    def __init__(self, input_size=100, output_size=2, layers=[100], activ='sigmoid', dropout=1.0, learn_rate=0.01, decay=0):
         self.input_size = input_size
         self.output_size = output_size
         self.layers = layers
         self.activ = activ
         self.dropout = dropout
         self.learn_rate = learn_rate
+        self.decay = decay
         self.weights = []
         self.biases = []
         self.hiddens = []
@@ -88,52 +89,49 @@ class FF_Model:
         }
         warnings.simplefilter("default")
 
-    def train(self, sets, epochs=10, batch=50, test_res=True, train_val_curve=False, show_progress=False, report_percentage=False, show_plot=False):
+    def train(self, sets, epochs=10, batch=50, show_progress=False, report_percentage=50, show_plot=False):
         # Start a tf session and run the optimisation algorithm
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
 
         trainer = Iterator(sets['train_set'], sets['train_labels'])
 
-        if train_val_curve:
-            train_truth = np.argmax(sets['train_labels'], 1)
-            validation_truth = np.argmax(sets['validation_labels'], 1)
+        validation_truth = np.argmax(sets['validation_labels'], 1)
+        validation_feed = {self.graph['x']: sets['validation_set'],
+                           self.graph['y_']: sets['validation_labels'],
+                           self.graph['keep_prob']: 1.0}
 
-            train_feed = {self.graph['x']: sets['train_set'],
-                          self.graph['y_']: sets['train_labels'],
-                          self.graph['keep_prob']: 1.0}
-            validation_feed = {self.graph['x']: sets['validation_set'],
-                               self.graph['y_']: sets['validation_labels'],
-                               self.graph['keep_prob']: 1.0}
+        test_truth = np.argmax(sets['test_labels'], 1)
+        test_feed = {self.graph['x']: sets['test_set'],
+                     self.graph['y_']: sets['test_labels'],
+                     self.graph['keep_prob']: 1.0}
 
-        if test_res:
-            test_truth = np.argmax(sets['test_labels'], 1)
-            test_feed = {self.graph['x']: sets['test_set'],
-                         self.graph['y_']: sets['test_labels'],
-                         self.graph['keep_prob']: 1.0}
+        train_truth = np.argmax(sets['train_labels'], 1)
+        train_feed = {self.graph['x']: sets['train_set'],
+                      self.graph['y_']: sets['train_labels'],
+                      self.graph['keep_prob']: 1.0}
 
         train_f1_score = []
         validation_f1_score = []
 
-        if report_percentage:
-            mark = (epochs * (len(sets['train_set']) // batch) * report_percentage) // 100
-            check_point = []
+        mark = (epochs * (len(sets['train_set']) // batch) * report_percentage) // 100
+        check_point = []
 
         N = 0
 
         warnings.simplefilter("ignore")
         while trainer.epochs < epochs:
             trd, trl = trainer.next_batch(batch)
-            if train_val_curve:
-                if N % mark == 0:
-                    prediction = self.sess.run(self.graph['prediction'], feed_dict=train_feed)
-                    train_f1_score.append(sk.metrics.f1_score(train_truth, prediction, pos_label=0))
-                    prediction = self.sess.run(self.graph['prediction'], feed_dict=validation_feed)
-                    validation_f1_score.append(sk.metrics.f1_score(validation_truth, prediction, pos_label=0))
-                    check_point.append(N)
-            if show_progress: print("Progress: %d%%" % (N * report_percentage // mark), end="\r")
+            if N % mark == 0:
+                prediction = self.sess.run(self.graph['prediction'], feed_dict=train_feed)
+                train_f1_score.append(sk.metrics.f1_score(train_truth, prediction, pos_label=0))
+                prediction = self.sess.run(self.graph['prediction'], feed_dict=validation_feed)
+                validation_f1_score.append(sk.metrics.f1_score(validation_truth, prediction, pos_label=0))
+                check_point.append(N)
+                if show_progress: print("Progress: %d%%" % (N * report_percentage // mark), end="\r")
             feed = {self.graph['x']: trd, self.graph['y_']: trl, self.graph['keep_prob']: self.dropout}
             self.sess.run(self.graph['ts'], feed_dict=feed)
+            self.learn_rate = self.learn_rate * 1 / (1 + self.decay * trainer.epochs)
             N += 1
         warnings.simplefilter("default")
 
@@ -150,10 +148,8 @@ class FF_Model:
             plt.legend()
             plt.show()
 
-        if test_res:
-            test_f1_score = sk.metrics.f1_score(test_truth, self.sess.run(self.graph['prediction'], feed_dict=test_feed),
+        test_f1_score = sk.metrics.f1_score(test_truth, self.sess.run(self.graph['prediction'], feed_dict=test_feed),
                                                 pos_label=0)
-        else: test_f1_score = []
 
         if show_progress:
             print('FInal Values: Tr-F1: {:.4f}, Val-F1: {:.4f}'.format(train_f1_score[-1], validation_f1_score[-1]))

@@ -375,15 +375,12 @@ def visualise(model, sentences, labels, topn=1000, title='T-SNE'):
 
     source = ColumnDataSource(data=dict(x1=words_tsne[:, 0],
                                         x2=words_tsne[:, 1],
-                                        names=visualisation,
                                         coloring=colormap))
 
     p.scatter(x="x1", y="x2", color="coloring", size=8, source=source)
 
-    labels = LabelSet(x="x1", y="x2", text="names", y_offset=6,
-                      text_font_size="8pt", text_color="#555555",
-                      source=source, text_align='center')
-    p.add_layout(labels)
+    #labels = LabelSet(x="x1", y="x2", y_offset=6, source=source)
+    #p.add_layout(labels)
 
     show(p)
 
@@ -550,24 +547,28 @@ def phrase_perf(target, NN, testers, model, side_words=[0, 0], tfpn=True, precis
                         cur_offset.append(list(map(int, window.group().split(':'))))
                     tru_offsets.append(cur_offset)
 
-        if show_phrases:
-            for i in range(len(res_phrases)):
-                if res_offsets[i] in tru_offsets:
-                    j = tru_offsets.index(res_offsets[i])
-                    perf_dict['tp'] += 1
+
+        for i in range(len(res_phrases)):
+            if res_offsets[i] in tru_offsets:
+                j = tru_offsets.index(res_offsets[i])
+                perf_dict['tp'] += 1
+                if show_phrases:
                     print(res_phrases[i], *res_offsets[i], tru_phrases[j], *tru_offsets[j])
-                else:
-                    perf_dict['fp'] += 1
+            else:
+                perf_dict['fp'] += 1
+                if show_phrases:
                     print(col.Back.YELLOW, end='')
                     print(res_phrases[i], *res_offsets[i])
                     print(col.Back.RESET, end='')
 
-            for i in range(len(tru_phrases)):
-                if tru_offsets[i] not in res_offsets:
-                    perf_dict['fn'] += 1
+        for i in range(len(tru_phrases)):
+            if tru_offsets[i] not in res_offsets:
+                perf_dict['fn'] += 1
+                if show_phrases:
                     print(col.Back.RED, end='')
                     print(tru_phrases[i], *tru_offsets[i])
                     print(col.Back.RESET, end='')
+        if show_phrases:
             print('\n')
 
     perf_dict['precision'] = perf_dict['tp'] / (perf_dict['tp'] + perf_dict['fp'])

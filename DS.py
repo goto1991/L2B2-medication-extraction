@@ -18,6 +18,10 @@ class DS:
         self.enc_inputs = []
         self.dec_inputs = []
         self.dec_outputs = []
+        self.inp_toks = []
+        self.inp_words = []
+        self.inp_labels = []
+        self.out_labels = []
 
     def process_for_embedding(self):
         self.emb_text = []
@@ -268,6 +272,212 @@ class DS:
         self.enc_inputs = all_enc_inputs
         self.dec_inputs = all_dec_inputs
         self.dec_outputs = all_dec_outputs
+
+    def process_for_els2s_testing(self):
+        #self.show_info()
+        text = self.raw_text
+        text = text.split('\n')
+        row_num = len(text)
+        for i in range(row_num):
+            text[i] = text[i].strip('.')  # Removing stops from end of lines
+            text[i] = re.sub(r'\d+', '<NUM>', text[i])  # Substituting numbers with number tokens
+            text[i] = re.sub(r'([A-Za-z]):', r'\1', text[i])  # Removing colons from letter words
+            text[i] = re.sub(r'Dr\.', 'Dr', text[i])
+            text[i] = re.sub(r'Mr\.', 'Mr', text[i])
+            text[i] = re.sub(r'([A-Za-z])\.', r'\1', text[i])
+            text[i] = re.sub(r'([A-Za-z]);', r'\1', text[i])
+            text[i] = text[i].lower()
+            text[i] = text[i].split()
+        self.token_text = text
+
+        tar_ind = [[], [], [], [], [], []]
+        entry_num = 0
+        for label_line in self.raw_labels.split('\n'):
+            # print(len(tar_ind[0]))
+            fields = label_line.split('||')
+            if len(fields) > 5:
+                windows = []
+                for window in re.finditer(r'\d+:\d+', fields[0]):
+                    windows.append(list(map(int, window.group().split(':'))))
+
+                if windows not in tar_ind[0]:
+                    tar_ind[0].append(windows)
+                    index = -1
+                    entry_num += 1
+                else:
+                    index = tar_ind[0].index(windows)
+
+                for i in range(1, 6):
+                    windows = []
+                    if not re.search(r'="nm"', fields[i]):
+                        for window in re.finditer(r'\d+:\d+', fields[i]):
+                            windows.append(list(map(int, window.group().split(':'))))
+                    else:
+                        windows = [[-1, -1], [-1, -1]]
+                    if index == -1:
+                        tar_ind[i].append(windows)
+                    else:
+                        for offset in windows:
+                            tar_ind[i][index].append(offset)
+
+        label_text = [[[0] for word in row] for row in self.token_text]
+        for i in range(len(tar_ind)):
+            for entry in range(entry_num):
+                index = 0
+                while index < len(tar_ind[i][entry]):
+                    start_row = tar_ind[i][entry][index][0] - 1
+                    start_word = tar_ind[i][entry][index][1]
+                    end_row = tar_ind[i][entry][index + 1][0] - 1
+                    end_word = tar_ind[i][entry][index + 1][1]
+                    row = start_row
+                    word = start_word
+                    while (row <= end_row) and ((row < end_row) or (word <= end_word)):
+                        row_len = len(label_text[row])
+                        label_text[row][word] = [i+1]
+                        if word < row_len - 1:
+                            word += 1
+                        else:
+                            word = 0
+                            row += 1
+                    index += 2
+
+        all_inp_med_toks = []
+        all_inp_word_seqs = []
+        all_inp_lab_seqs = []
+        all_out_lab_seqs = []
+
+        #all_enc_labels = []
+        #all_enc_inputs = []
+        #all_dec_inputs = []
+        #all_dec_outputs = []
+
+        for entry in range(entry_num):
+            current_inp_med_tok = []
+            current_inp_word_seq = []
+            current_inp_lab_seq = []
+            current_out_lab_seq = []
+            current_enc_input = []
+            current_dec_input = ['<go>']
+            min_row = float('inf')
+            max_row = 0
+            index = 0
+            med_indices = []
+            while index < len(tar_ind[0][entry]):
+                start_row = tar_ind[0][entry][index][0] - 1
+                start_word = tar_ind[0][entry][index][1]
+                end_row = tar_ind[0][entry][index + 1][0] - 1
+                end_word = tar_ind[0][entry][index + 1][1]
+                min_row = min(min_row, start_row)
+                max_row = max(max_row, end_row)
+                row = start_row
+                word = start_word
+                # print(start_row, start_word, end_row, end_word)
+                while (row <= end_row) and ((row < end_row) or (word <= end_word)):
+                    row_len = len(self.token_text[row])
+                    current_enc_input.append(self.token_text[row][word])
+                    current_inp_med_tok.append(self.token_text[row][word])
+                    med_indices.append([row, word])
+                    if word < row_len - 1:
+                        word += 1
+                    else:
+                        word = 0
+                        row += 1
+                index += 2
+            current_enc_input.append('<start>')
+
+            start = max(0, min_row - 2)
+            end = min(row_num, max_row + 3)
+            dummy_dec_input = []
+            for i in range(start, end):
+                dummy_row = []
+                dummy_inp_word_seq = []
+                dummy_out_lab_seq = []
+                for word in self.token_text[i]:
+                    current_enc_input.append(word)
+                    dummy_row.append(0)
+                    dummy_inp_word_seq.append(word)
+                    dummy_out_lab_seq.append(0)
+                dummy_dec_input.append(dummy_row)
+                current_inp_word_seq.append(dummy_inp_word_seq)
+                current_out_lab_seq.append(dummy_out_lab_seq)
+            current_inp_word_seq = [word for row in current_inp_word_seq for word in row]
+
+            for index in med_indices:
+                dummy_dec_input[index[0]-start][index[1]] = 6
+                current_out_lab_seq[index[0]-start][index[1]] = 1
+
+            for i in range(1, 6):
+                index = 0
+                while index < len(tar_ind[i][entry]):
+                    if tar_ind[i][entry][index][0] != -1:
+                        start_row = tar_ind[i][entry][index][0] - 1 - start
+                        start_word = tar_ind[i][entry][index][1]
+                        end_row = tar_ind[i][entry][index + 1][0] - 1 - start
+                        end_word = tar_ind[i][entry][index + 1][1]
+                        if end_row > len(dummy_dec_input) - 1:
+                            end_row = len(dummy_dec_input) - 1
+                            end_word = len(dummy_dec_input[end_row]) - 1
+                        if start_row < 0:
+                            start_row = 0
+                            start_word = 0
+                        row = start_row
+                        word = start_word
+                        # print(i, start_row, start_word, end_row, end_word)
+                        while (row <= end_row) and ((row < end_row) or (word <= end_word)):
+                            row_len = len(dummy_dec_input[row])
+                            dummy_dec_input[row][word] = i
+                            current_out_lab_seq[row][word] = i+1
+                            if word < row_len - 1:
+                                word += 1
+                            else:
+                                word = 0
+                                row += 1
+                    index += 2
+
+            for row in dummy_dec_input:
+                for word in row:
+                    current_dec_input.append(word)
+
+            current_dec_output = current_dec_input[1:]
+            current_dec_output.append(8)
+
+            start_tok = current_enc_input.index('<start>')
+            new_dec_input=['<go>']
+            for i in range(1, len(current_dec_input)):
+                if current_dec_input[i] is not 0:
+                    new_dec_input.append(current_enc_input[start_tok + i])
+            new_dec_output = new_dec_input[1:]
+            new_dec_output.append('<eos>')
+
+            #start = max(0, min_row - 2)
+            #end = min(row_num, max_row + 3)
+            window_labels = [[1] for i in range(start_tok)]
+            window_labels.append([0])
+            for i in range(start, end):
+                for label in label_text[i]:
+                    window_labels.append(label)
+
+            current_out_lab_seq = [lab for row in current_out_lab_seq for lab in row]
+
+            all_inp_med_toks.append(current_inp_med_tok)
+            all_inp_word_seqs.append(current_inp_word_seq)
+            all_inp_lab_seqs.append(window_labels[start_tok+1:])
+            all_out_lab_seqs.append(current_out_lab_seq)
+
+            #all_enc_labels.append(window_labels)
+            #all_enc_inputs.append(current_enc_input)
+            #all_dec_inputs.append(new_dec_input)
+            #all_dec_outputs.append(new_dec_output)
+
+        self.inp_toks = all_inp_med_toks
+        self.inp_words = all_inp_word_seqs
+        self.inp_labels = all_inp_lab_seqs
+        self.out_labels = all_out_lab_seqs
+
+        #self.enc_labels = all_enc_labels
+        #self.enc_inputs = all_enc_inputs
+        #self.dec_inputs = all_dec_inputs
+        #self.dec_outputs = all_dec_outputs
 
     def show_info(self):
         print('Name: ', self.name)
