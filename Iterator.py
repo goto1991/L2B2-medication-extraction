@@ -94,3 +94,33 @@ class S2SIterator():
         self.cursor += n
         return res_enc_inps, res_enc_labs, res_enc_inp_lens, res_dec_inps, res_dec_inp_lens, res_dec_outs, res_target_weights
 
+
+class ELS2SIterator():
+    def __init__(self, targets, tokens, labels, lengths, outputs):
+        self.targets = targets
+        self.tokens = tokens
+        self.labels = labels
+        self.lengths = lengths
+        self.outputs = outputs
+        self.size = len(self.targets)
+        self.epochs = 0
+        self.cursor = 0
+        self.shuffle()
+
+    def shuffle(self):
+        temp = list(zip(self.targets, self.tokens, self.labels, self.lengths, self.outputs))
+        random.shuffle(temp)
+        self.targets, self.tokens, self.labels, self.lengths, self.outputs= zip(*temp)
+        self.cursor = 0
+
+    def next_batch(self, n):
+        if self.cursor+n > self.size:
+            self.epochs += 1
+            self.shuffle()
+        res_targets = list(self.targets[self.cursor:self.cursor+n])
+        res_tokens = list(self.tokens[self.cursor:self.cursor+n])
+        res_labels = list(self.labels[self.cursor:self.cursor + n])
+        res_lengths = list(self.lengths[self.cursor:self.cursor + n])
+        res_outputs = list(self.outputs[self.cursor:self.cursor + n])
+        self.cursor += n
+        return res_targets, res_tokens, res_labels, res_lengths, res_outputs

@@ -135,6 +135,10 @@ class pool:
         for i in range(self.size):
             self.data[i].process_for_s2s_testing()
 
+    def process_for_els2s_testing(self):
+        for i in range(self.size):
+            self.data[i].process_for_els2s_testing()
+
     def get_ff_sets(self, model, left_words=0, right_words=0):
         padded_texts = [['<pad>' for i in range(left_words)] + case.test_text + ['<pad>' for i in range(right_words)]
                         for case in self.data]
@@ -212,46 +216,38 @@ class pool:
 
         return enc_inps, enc_labels, enc_inp_lens, dec_inps, dec_inp_lens, dec_outs, target_weights, dec_out_words
 
-    def get_els2s_sets(self, word_indices, max_enc_inp, max_dec_inp):
-        enc_inps = []
-        enc_labels = []
-        enc_inp_lens = []
-        dec_inps = []
-        dec_inp_lens = []
-        dec_outs = []
+    def get_els2s_sets(self, word_indices, max_tok, max_inp):
+        inp_meds = []
+        inp_toks = []
+        inp_labels = []
+        inp_lens = []
+        out_labs = []
         target_weights = []
-        dec_out_words = []
 
         for case in self.data:
-            for instance in case.enc_inputs:
+            for instance in case.inp_toks:
                 temp = [word_indices[word] if word in word_indices.keys() else 1 for word in instance]
-                enc_inp_lens.append(len(temp))
-                while len(temp) < max_enc_inp:
-                    temp.append(word_indices['<pad>'])
-                enc_inps.append(temp)
-            for instance in case.enc_labels:
+                while len(temp) < max_tok:
+                    temp.append(2)
+                inp_meds.append(temp)
+            for instance in case.inp_words:
+                temp = [word_indices[word] if word in word_indices.keys() else 1 for word in instance]
+                temp2 = [1 for word in instance]
+                inp_lens.append(len(temp))
+                while len(temp) < max_inp:
+                    temp.append(0)
+                    temp2.append(0)
+                inp_toks.append(temp)
+                target_weights.append(temp2)
+            for instance in case.inp_labels:
                 temp = instance
-                while len(temp) < max_enc_inp:
+                while len(temp) < max_inp:
                     temp.append([0])
-                enc_labels.append(temp)
-            for instance in case.dec_inputs:
-                temp = [word_indices[word] if word in word_indices.keys() else 1 for word in instance]
-                dec_inp_lens.append(len(temp))
-                while len(temp) < max_dec_inp:
-                    temp.append(word_indices['<pad>'])
-                dec_inps.append(temp)
-            for instance in case.dec_outputs:
-                temp = [word_indices[word] if word in word_indices.keys() else 1 for word in instance]
-                cur_tar_weights = []
-                for i in range(max_dec_inp):
-                    if i < len(instance):
-                        cur_tar_weights.append(1)
-                    else:
-                        cur_tar_weights.append(0)
-                        temp.append(word_indices['<pad>'])
-                dec_outs.append(temp)
-                target_weights.append(cur_tar_weights)
-                dec_out_words.append(instance)
+                inp_labels.append(temp)
+            for instance in case.out_labels:
+                temp = instance
+                while len(temp) < max_inp:
+                    temp.append(0)
+                out_labs.append(temp)
 
-        return enc_inps, enc_labels, enc_inp_lens, dec_inps, dec_inp_lens, dec_outs, target_weights, dec_out_words
-
+        return inp_meds, inp_toks, inp_labels, inp_lens, out_labs, target_weights
