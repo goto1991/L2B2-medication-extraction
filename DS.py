@@ -113,12 +113,9 @@ class DS:
             text[i] = text[i].split()
         self.token_text = text
 
-        label_text = [[0 for word in row] for row in self.token_text]
-
         tar_ind = [[], [], [], [], [], []]
         entry_num = 0
         for label_line in self.raw_labels.split('\n'):
-            # print(len(tar_ind[0]))
             fields = label_line.split('||')
             if len(fields) > 5:
                 windows = []
@@ -187,7 +184,6 @@ class DS:
                 max_row = max(max_row, end_row)
                 row = start_row
                 word = start_word
-                # print(start_row, start_word, end_row, end_word)
                 while (row <= end_row) and ((row < end_row) or (word <= end_word)):
                     row_len = len(self.token_text[row])
                     current_enc_input.append(self.token_text[row][word])
@@ -229,7 +225,6 @@ class DS:
                             start_word = 0
                         row = start_row
                         word = start_word
-                        # print(i, start_row, start_word, end_row, end_word)
                         while (row <= end_row) and ((row < end_row) or (word <= end_word)):
                             row_len = len(dummy_dec_input[row])
                             dummy_dec_input[row][word] = i
@@ -255,8 +250,6 @@ class DS:
             new_dec_output = new_dec_input[1:]
             new_dec_output.append('<eos>')
 
-            #start = max(0, min_row - 2)
-            #end = min(row_num, max_row + 3)
             window_labels = [[1] for i in range(start_tok)]
             window_labels.append([0])
             for i in range(start, end):
@@ -274,7 +267,6 @@ class DS:
         self.dec_outputs = all_dec_outputs
 
     def process_for_els2s_testing(self):
-        #self.show_info()
         text = self.raw_text
         text = text.split('\n')
         row_num = len(text)
@@ -293,7 +285,6 @@ class DS:
         tar_ind = [[], [], [], [], [], []]
         entry_num = 0
         for label_line in self.raw_labels.split('\n'):
-            # print(len(tar_ind[0]))
             fields = label_line.split('||')
             if len(fields) > 5:
                 windows = []
@@ -449,8 +440,6 @@ class DS:
             new_dec_output = new_dec_input[1:]
             new_dec_output.append('<eos>')
 
-            #start = max(0, min_row - 2)
-            #end = min(row_num, max_row + 3)
             window_labels = [[1] for i in range(start_tok)]
             window_labels.append([0])
             for i in range(start, end):

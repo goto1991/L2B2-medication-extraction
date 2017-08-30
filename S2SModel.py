@@ -19,7 +19,9 @@ class S2S_Model:
                  dropout=1.0,
                  learn_rate=0.001,
                  max_gradient_norm=5,
-                 enc_emb_layer=False):
+                 enc_emb_layer=False,
+                 bahnadau=False,
+                 normalise=False):
         self.decay = decay
         self.batch = batch
         self.enc_vocab_size = enc_vocab_size
@@ -31,6 +33,8 @@ class S2S_Model:
         self.learn_rate = learn_rate
         self.max_gradient_norm = max_gradient_norm
         self.enc_emb_layer = enc_emb_layer
+        self.bahnadau = bahnadau
+        self.normalise = False
         self.graph = None
         self.sess = None
 
@@ -93,9 +97,16 @@ class S2S_Model:
         decoder_cell = tf.nn.rnn_cell.BasicLSTMCell(2 * self.state_size)
 
         # Attention
-        attention_mechanism = tf.contrib.seq2seq.LuongAttention(2 * self.state_size,
-                                                                encoder_outputs,
-                                                                memory_sequence_length=enc_seqlen)
+        if self.bahnadau:
+            attention_mechanism = tf.contrib.seq2seq.BahdanauAttention(2 * self.state_size,
+                                                                       encoder_outputs,
+                                                                       memory_sequence_length=enc_seqlen,
+                                                                       normalize=self.normalise)
+        else:
+            attention_mechanism = tf.contrib.seq2seq.LuongAttention(2 * self.state_size,
+                                                                    encoder_outputs,
+                                                                    memory_sequence_length=enc_seqlen,
+                                                                    scale=self.normalise)
 
         decoder_cell = tf.contrib.seq2seq.AttentionWrapper(decoder_cell,
                                                            attention_mechanism,
@@ -198,8 +209,8 @@ class S2S_Model:
                      self.graph['target_weights']: sets['test'][6],
                      self.graph['keep_prob']: 1.0}
 
-        train_f1_score = []
-        validation_f1_score = []
+        perp = []
+        test_score = []
 
         mark = (epochs * (len(sets['train'][0]) // self.batch) * report_percentage) // 100
         check_point = []
@@ -230,8 +241,8 @@ class S2S_Model:
                 #    f1_sum += sk.metrics.f1_score(validation_truth[i], pred_cut[i], labels=[1, 2, 3, 4, 5, 6], average='micro')
                 # validation_f1_score.append(f1_sum / len(pred_cut))
                 # check_point.append(N)
-                perp = self.sess.run(self.graph['perplexity'], feed_dict=feed)
-                print('Epoch: {}, Learn Rate: {:.7f}, Perplexity: {:.2f}'.format(trainer.epochs, self.learn_rate, perp))
+                perp.append(self.sess.run(self.graph['perplexity'], feed_dict=feed))
+                # print('Epoch: {}, Learn Rate: {:.7f}, Perplexity: {:.2f}'.format(trainer.epochs, self.learn_rate, perp[-1]))
                 if show_progress: print("Progress: %d%%" % (N * report_percentage // mark), end="\r")
             self.sess.run(self.graph['update_step'], feed_dict=feed)
             self.learn_rate = self.learn_rate * 1 / (1 + self.decay * trainer.epochs)
@@ -262,7 +273,7 @@ class S2S_Model:
         #    plt.legend()
         #    plt.show()
 
-        # return train_f1_score, validation_f1_score, test_f1_score
+        return perp
 
     def predict(self, data):
         feed = {self.graph['enc_x']: data[0],
