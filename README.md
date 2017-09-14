@@ -1,2 +1,2 @@
 # L2B2-medication-extraction
-MSc project trying to beat the gold-standard for the task using DNNs
+This repository contains the models used to successfully beat the gold-standard results of the 2009 Medication Extraction NLP Challenge as organised by i2b2 organisation.
